@@ -1,0 +1,10 @@
+
+baseURL = "https://hexzzle-blog.pages.dev/"
+languageCode = "en-us"
+title = "Hexzzle Blog"
+theme = "ananke"
+buildFuture = true
+paginate = 10
+
+[params]
+  mainSections = ["posts"]
