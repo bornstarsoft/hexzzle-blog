@@ -1,10 +1,11 @@
 
-baseURL = "https://hexzzle-blog.pages.dev/"
+baseURL = "https://hexzzle.com/"
 languageCode = "en-us"
-title = "Hexzzle Blog"
+title = "Hexzzle"
 theme = "ananke"
-buildFuture = true
-paginate = 10
+paginate = 12
+enableRobotsTXT = true
+buildFuture = false
 
 [params]
   mainSections = ["posts"]
