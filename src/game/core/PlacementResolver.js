@@ -1,25 +1,53 @@
 import { HEX_DIRECTIONS, axialAdd, axialKey } from './HexCoordinates.js';
 
 export function findBestPlacementAnchor(board, piece, preferredAnchor, maxRadius = 2) {
-  return resolvePlacementPreview(board, piece, preferredAnchor, maxRadius).placementAnchor;
-}
-
-export function resolvePlacementPreview(board, piece, preferredAnchor, maxRadius = 2) {
   if (!piece || !preferredAnchor || !board.hasCoord(preferredAnchor)) {
-    return createPreviewState({ previewAnchor: null });
+    return null;
   }
 
-  const candidates = getCandidateAnchors(preferredAnchor, maxRadius)
-    .filter((coord) => board.hasCoord(coord));
-  const placementAnchor = candidates.find((coord) => board.canPlacePiece(piece, coord)) ?? null;
-  const previewAnchor = placementAnchor ?? preferredAnchor;
+  return getCandidateAnchors(preferredAnchor, maxRadius)
+    .filter((coord) => board.hasCoord(coord))
+    .find((coord) => board.canPlacePiece(piece, coord)) ?? null;
+}
+
+export function resolvePlacementPreview(board, piece, preferredAnchor) {
+  if (!piece || !preferredAnchor || !board.hasCoord(preferredAnchor)) {
+    return createPreviewState({ invalidReason: 'no-anchor' });
+  }
+
+  const targets = getPreviewTargets(board, piece, preferredAnchor);
+  const valid = board.canPlacePiece(piece, preferredAnchor);
 
   return createPreviewState({
-    valid: Boolean(placementAnchor),
-    placementAnchor,
-    previewAnchor,
-    targets: getPreviewTargets(board, piece, previewAnchor)
+    valid,
+    placementAnchor: valid ? preferredAnchor : null,
+    candidateAnchor: preferredAnchor,
+    previewAnchor: preferredAnchor,
+    invalidReason: valid ? null : getInvalidReason(targets),
+    targets
   });
+}
+
+export function resolveReleasePlacementAnchor(
+  board,
+  piece,
+  preview,
+  { fallbackAnchor = null, maxRadius = 1 } = {}
+) {
+  if (preview?.valid) {
+    return preview.placementAnchor;
+  }
+
+  if (preview?.invalidReason === 'blocked' || preview?.invalidReason === 'out-of-board') {
+    return null;
+  }
+
+  const localAnchor = preview?.candidateAnchor ?? fallbackAnchor;
+  if (!localAnchor) {
+    return null;
+  }
+
+  return findBestPlacementAnchor(board, piece, localAnchor, maxRadius);
 }
 
 export function getCandidateAnchors(center, maxRadius = 2) {
@@ -56,13 +84,17 @@ export function getCandidateAnchors(center, maxRadius = 2) {
 function createPreviewState({
   valid = false,
   placementAnchor = null,
+  candidateAnchor = null,
   previewAnchor = null,
+  invalidReason = null,
   targets = []
 } = {}) {
   return {
     valid,
     placementAnchor,
+    candidateAnchor,
     previewAnchor,
+    invalidReason,
     targets
   };
 }
@@ -83,4 +115,16 @@ function getPreviewTargets(board, piece, anchor) {
       blocked: exists && !empty
     };
   });
+}
+
+function getInvalidReason(targets) {
+  if (targets.some((target) => target.blocked)) {
+    return 'blocked';
+  }
+
+  if (targets.some((target) => !target.exists)) {
+    return 'out-of-board';
+  }
+
+  return 'invalid';
 }

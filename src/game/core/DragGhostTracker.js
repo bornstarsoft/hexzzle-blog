@@ -5,11 +5,17 @@ export function createDragGhostState({
   pieceIndex,
   offset = DEFAULT_DRAG_GHOST_OFFSET
 }) {
+  const pointerPoint = getPointerPoint(pointer);
+  const ghostPosition = getGhostCenterFromPointer(pointer, offset);
+
   return {
     pointerId: pointer?.id,
     pieceIndex,
+    pointerPoint,
+    pointerOffset: { ...offset },
     offset: { ...offset },
-    ghostCenter: getGhostCenterFromPointer(pointer, offset)
+    ghostPosition,
+    ghostCenter: ghostPosition
   };
 }
 
@@ -18,9 +24,16 @@ export function updateDragGhostCenter(state, { pointer }) {
     return state;
   }
 
+  const pointerPoint = getPointerPoint(pointer);
+  const offset = state.pointerOffset ?? state.offset;
+  const ghostPosition = getGhostCenterFromPointer(pointer, offset);
+
   return {
     ...state,
-    ghostCenter: getGhostCenterFromPointer(pointer, state.offset)
+    pointerPoint,
+    pointerOffset: { ...offset },
+    ghostPosition,
+    ghostCenter: ghostPosition
   };
 }
 
@@ -28,5 +41,12 @@ export function getGhostCenterFromPointer(pointer, offset = DEFAULT_DRAG_GHOST_O
   return {
     x: pointer.x + offset.x,
     y: pointer.y + offset.y
+  };
+}
+
+function getPointerPoint(pointer) {
+  return {
+    x: pointer.x,
+    y: pointer.y
   };
 }

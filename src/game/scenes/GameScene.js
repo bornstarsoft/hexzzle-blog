@@ -7,7 +7,10 @@ import {
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import { axialToPixel } from '../core/HexCoordinates.js';
-import { resolvePlacementPreview } from '../core/PlacementResolver.js';
+import {
+  resolvePlacementPreview,
+  resolveReleasePlacementAnchor
+} from '../core/PlacementResolver.js';
 import { PieceGenerator } from '../core/PieceGenerator.js';
 import { cloneTray } from '../core/PieceModel.js';
 import { ScoreModel } from '../core/ScoreModel.js';
@@ -159,11 +162,12 @@ export class GameScene extends Phaser.Scene {
 
     this.updateDrag(pointer);
     const preview = this.previewState;
+    const releaseAnchor = this.resolveReleasePlacementAnchor(state.piece, preview, pointer);
 
-    if (preview?.valid) {
+    if (releaseAnchor) {
       this.destroyDragGhost(state);
       this.dragState = null;
-      this.placeActivePiece(preview.placementAnchor);
+      this.placeActivePiece(releaseAnchor);
       return;
     }
 
@@ -212,8 +216,10 @@ export class GameScene extends Phaser.Scene {
       pointerId: tracker.pointerId,
       piece,
       returnOrigin: this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
-      ghostOffset: tracker.offset,
-      ghostCenter: tracker.ghostCenter,
+      pointerPoint: tracker.pointerPoint,
+      pointerOffset: tracker.pointerOffset,
+      ghostPosition: tracker.ghostPosition,
+      ghostCenter: tracker.ghostPosition,
       ghostSize: this.getGhostPieceSize(),
       ghost: null,
       moved: false,
@@ -221,7 +227,7 @@ export class GameScene extends Phaser.Scene {
       startPoint: { x: pointer.x, y: pointer.y }
     };
     this.createDragGhost(this.dragState);
-    this.renderDragDebug(pointer, this.dragState.ghostCenter);
+    this.renderDragDebug(pointer, this.dragState.ghostPosition);
     this.previewState = null;
     this.hoverCoord = null;
     this.emitStatus(`Piece ${index + 1} selected.`);
@@ -386,7 +392,7 @@ export class GameScene extends Phaser.Scene {
       hoverCoord: preview?.previewAnchor ?? this.hoverCoord,
       previewValid: Boolean(preview?.valid),
       previewTargets: preview?.targets ?? [],
-      showOpenAnchors: Boolean(piece)
+      showOpenAnchors: Boolean(piece) && !this.dragState
     });
     this.trayView.render({
       tray: this.tray,
@@ -399,7 +405,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   resolvePreview(piece, anchor) {
-    return resolvePlacementPreview(this.board, piece, anchor, 2);
+    return resolvePlacementPreview(this.board, piece, anchor);
   }
 
   getNearestBoardAnchor(point, { tolerance }) {
@@ -422,22 +428,26 @@ export class GameScene extends Phaser.Scene {
 
     const tracker = updateDragGhostCenter({
       pointerId: state.pointerId,
-      offset: state.ghostOffset,
-      ghostCenter: state.ghostCenter
+      pointerOffset: state.pointerOffset,
+      ghostPosition: state.ghostPosition
     }, { pointer });
-    state.ghostCenter = tracker.ghostCenter;
-    this.drawDragGhost(state, state.ghostCenter);
-    this.renderDragDebug(pointer, state.ghostCenter);
+    state.pointerPoint = tracker.pointerPoint;
+    state.ghostPosition = tracker.ghostPosition;
+    state.ghostCenter = tracker.ghostPosition;
+    this.drawDragGhost(state, state.ghostPosition);
 
     const distance = Math.hypot(pointer.x - state.startPoint.x, pointer.y - state.startPoint.y);
     if (!state.moved && distance < DRAG_MOVE_THRESHOLD) {
+      this.renderDragDebug(pointer, state.ghostPosition);
       return;
     }
 
     state.moved = true;
-    const anchor = this.getNearestBoardAnchor(state.ghostCenter, { tolerance: this.getPreviewTolerance() });
+    const anchor = this.getNearestBoardAnchor(pointer, { tolerance: this.getPreviewTolerance() });
     this.previewState = this.resolvePreview(state.piece, anchor);
     this.hoverCoord = this.previewState.previewAnchor;
+    const releaseCandidate = this.resolveReleasePlacementAnchor(state.piece, this.previewState, pointer);
+    this.renderDragDebug(pointer, state.ghostPosition, this.previewState, releaseCandidate);
 
     if (this.previewState.valid) {
       this.emitStatus('Release to place.');
@@ -470,7 +480,7 @@ export class GameScene extends Phaser.Scene {
     ghost.setDepth(100);
     ghost.setAlpha(0.92);
     state.ghost = ghost;
-    this.drawDragGhost(state, state.ghostCenter);
+    this.drawDragGhost(state, state.ghostPosition);
     return ghost;
   }
 
@@ -479,7 +489,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    state.ghostCenter = { x: center.x, y: center.y };
+    state.ghostPosition = { x: center.x, y: center.y };
+    state.ghostCenter = state.ghostPosition;
     state.ghost.clear();
     drawPieceOnGraphics(state.ghost, state.piece, center.x, center.y, state.ghostSize, 0.9);
   }
@@ -547,7 +558,18 @@ export class GameScene extends Phaser.Scene {
     this.inputLockedUntil = Math.max(this.inputLockedUntil, this.time.now + duration);
   }
 
-  renderDragDebug(pointer, ghostCenter) {
+  resolveReleasePlacementAnchor(piece, preview, pointer) {
+    return resolveReleasePlacementAnchor(this.board, piece, preview, {
+      fallbackAnchor: this.getNearestBoardAnchor(pointer, { tolerance: this.getReleaseFallbackTolerance() }),
+      maxRadius: 1
+    });
+  }
+
+  getReleaseFallbackTolerance() {
+    return this.scale.width < 520 ? 0.95 : 0.72;
+  }
+
+  renderDragDebug(pointer, ghostCenter, preview = null, releaseCandidate = null) {
     if (!this.debugDragEnabled || !this.dragDebugGraphics || !this.dragDebugText || !pointer || !ghostCenter) {
       return;
     }
@@ -563,14 +585,41 @@ export class GameScene extends Phaser.Scene {
     this.dragDebugGraphics.fillCircle(pointer.x, pointer.y, 5);
     this.dragDebugGraphics.fillStyle(0x2f80ed, 0.95);
     this.dragDebugGraphics.fillCircle(ghostCenter.x, ghostCenter.y, 5);
-    this.dragDebugText.setText(`drag dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}`);
+    if (preview?.previewAnchor) {
+      const previewPoint = this.boardView.toScreen(preview.previewAnchor);
+      this.dragDebugGraphics.fillStyle(preview.valid ? 0x18756b : 0xef5a5a, 0.95);
+      this.dragDebugGraphics.fillCircle(previewPoint.x, previewPoint.y, 4);
+    }
+
+    if (releaseCandidate) {
+      const releasePoint = this.boardView.toScreen(releaseCandidate);
+      this.dragDebugGraphics.lineStyle(2, 0x8f65d9, 0.55);
+      this.dragDebugGraphics.strokeCircle(releasePoint.x, releasePoint.y, 7);
+    }
+
+    const previewLabel = preview?.previewAnchor
+      ? `preview ${preview.valid ? 'valid' : preview.invalidReason ?? 'invalid'}`
+      : 'preview none';
+    const releaseLabel = releaseCandidate
+      ? `release ${isSameCoord(preview?.candidateAnchor, releaseCandidate) ? 'same' : 'fallback'}`
+      : 'release none';
+    this.dragDebugText.setText(
+      `ghost dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}\n${previewLabel} | ${releaseLabel}`
+    );
 
     const sample = {
       pointer: { x: Math.round(pointer.x), y: Math.round(pointer.y) },
       ghostCenter: { x: Math.round(ghostCenter.x), y: Math.round(ghostCenter.y) },
       dx: Math.round(dx),
       dy: Math.round(dy),
-      distance: Math.round(distance)
+      distance: Math.round(distance),
+      preview: preview ? {
+        anchor: preview.previewAnchor,
+        valid: preview.valid,
+        invalidReason: preview.invalidReason
+      } : null,
+      releaseCandidate,
+      releaseFallbackDiffers: Boolean(releaseCandidate && !isSameCoord(preview?.candidateAnchor, releaseCandidate))
     };
     const existing = getDragDebugPayload().samples ?? [];
     setDragDebugPayload({
@@ -664,6 +713,10 @@ function getDragDebugGlobal() {
   }
 
   return {};
+}
+
+function isSameCoord(a, b) {
+  return Boolean(a && b && a.q === b.q && a.r === b.r);
 }
 
 function drawPieceOnGraphics(graphics, piece, centerX, centerY, size, alpha = 1) {
