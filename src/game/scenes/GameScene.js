@@ -2,13 +2,33 @@ import Phaser from 'phaser';
 
 import { BloomResolver } from '../core/BloomResolver.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
-import { findBestPlacementAnchor } from '../core/PlacementResolver.js';
+import { axialToPixel } from '../core/HexCoordinates.js';
+import { resolvePlacementPreview } from '../core/PlacementResolver.js';
 import { PieceGenerator } from '../core/PieceGenerator.js';
 import { cloneTray } from '../core/PieceModel.js';
 import { ScoreModel } from '../core/ScoreModel.js';
 import { StorageService } from '../core/StorageService.js';
-import { HoneycombBoardView } from '../ui/HoneycombBoardView.js';
+import {
+  clearActivePieceAfterPlacement,
+  createTraySelectionState,
+  getActiveTrayPiece,
+  keepActivePieceAfterInvalidPlacement,
+  selectTrayPiece,
+  useActiveTrayPiece
+} from '../core/TraySelectionState.js';
+import { HoneycombBoardView, drawHex } from '../ui/HoneycombBoardView.js';
 import { TrayView } from '../ui/TrayView.js';
+
+const COLOR_MAP = {
+  red: 0xef5a5a,
+  blue: 0x2f80ed,
+  yellow: 0xf2c94c,
+  green: 0x3fbf7f,
+  purple: 0x8f65d9,
+  orange: 0xf2994a
+};
+
+const DRAG_MOVE_THRESHOLD = 8;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -30,15 +50,20 @@ export class GameScene extends Phaser.Scene {
     this.boardView = new HoneycombBoardView(this);
     this.trayView = new TrayView(this);
     this.tray = this.generator.generateTray({ score: 0, placements: 0 });
-    this.selectedIndex = 0;
+    this.selectionState = createTraySelectionState();
+    this.dragState = null;
+    this.previewState = null;
     this.placements = 0;
     this.undoSnapshot = null;
     this.isGameOver = false;
+    this.inputLockedUntil = 0;
     this.hoverCoord = null;
     this.statusMessage = 'Tap a piece, then tap the board.';
 
     this.input.on('pointermove', this.handlePointerMove, this);
     this.input.on('pointerdown', this.handlePointerDown, this);
+    this.input.on('pointerup', this.handlePointerUp, this);
+    this.input.on('pointerupoutside', this.handlePointerUp, this);
     this.scale.on('resize', this.redraw, this);
 
     this.input.keyboard?.on('keydown-ONE', () => this.selectTrayPiece(0));
@@ -53,67 +78,157 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePointerMove(pointer) {
-    if (this.isGameOver || !this.hasTrayPieces()) {
+    if (this.isGameOver || this.isInputLocked() || !this.hasTrayPieces()) {
       return;
     }
 
-    this.hoverCoord = this.boardView.coordFromPointer(pointer);
+    if (this.dragState) {
+      this.updateDrag(pointer);
+      return;
+    }
+
+    const piece = getActiveTrayPiece(this.selectionState, this.tray);
+    if (!piece) {
+      return;
+    }
+
+    const anchor = this.getNearestBoardAnchor(pointer, { tolerance: this.getPreviewTolerance() });
+    this.previewState = this.resolvePreview(piece, anchor);
+    this.hoverCoord = this.previewState.previewAnchor;
     this.redraw();
   }
 
   handlePointerDown(pointer) {
-    if (this.isGameOver) {
+    if (this.isGameOver || this.isInputLocked()) {
       return;
     }
 
     const trayIndex = this.trayView.getPieceIndexAt(pointer);
     if (trayIndex !== null) {
-      this.selectTrayPiece(trayIndex);
+      this.startTrayInteraction(trayIndex, pointer);
       return;
     }
 
-    const coord = this.boardView.coordFromPointer(pointer, { tolerance: this.getTouchTolerance() });
+    const coord = this.getNearestBoardAnchor(pointer, { tolerance: this.getTouchTolerance() });
     if (!coord) {
       this.emitStatus('Tap closer to the Honeycomb Board.');
       return;
     }
 
-    this.placeSelectedPiece(coord);
+    this.placeActivePiece(coord);
   }
 
-  selectTrayPiece(index) {
-    if (!this.tray[index]) {
+  handlePointerUp(pointer) {
+    if (!this.dragState || this.dragState.returning) {
       return;
     }
 
-    this.selectedIndex = index;
+    const state = this.dragState;
+    if (pointer.id !== undefined && state.pointerId !== undefined && pointer.id !== state.pointerId) {
+      return;
+    }
+
+    if (!state.moved) {
+      this.destroyDragGhost(state);
+      this.dragState = null;
+      this.previewState = null;
+      this.hoverCoord = null;
+      this.emitStatus(`Piece ${state.slotIndex + 1} selected. Tap the board.`);
+      this.redraw();
+      return;
+    }
+
+    this.updateDrag(pointer);
+    const preview = this.previewState;
+
+    if (preview?.valid) {
+      this.destroyDragGhost(state);
+      this.dragState = null;
+      this.placeActivePiece(preview.placementAnchor);
+      return;
+    }
+
+    this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
+    this.boardView.showInvalid(
+      preview?.previewAnchor ?? this.hoverCoord,
+      state.piece,
+      this.configData.gameFeel?.invalidFeedbackMs ?? 180
+    );
+    this.emitStatus('Not there. Try an open honeycomb space.');
+    this.playTone(180, 0.04);
+    this.animateGhostBackToTray(state);
+  }
+
+  selectTrayPiece(index) {
+    const nextState = selectTrayPiece(this.selectionState, this.tray, index);
+    if (nextState.activePieceIndex === this.selectionState.activePieceIndex && !this.tray[index]) {
+      return;
+    }
+
+    this.selectionState = nextState;
+    this.previewState = null;
+    this.hoverCoord = null;
     this.emitStatus(`Piece ${index + 1} selected. Tap the board.`);
     this.redraw();
   }
 
-  placeSelectedPiece(preferredAnchor) {
-    const piece = this.tray[this.selectedIndex];
+  startTrayInteraction(index, pointer) {
+    if (!this.tray[index] || this.dragState) {
+      return;
+    }
+
+    this.selectionState = selectTrayPiece(this.selectionState, this.tray, index);
+    const piece = getActiveTrayPiece(this.selectionState, this.tray);
+    if (!piece) {
+      return;
+    }
+
+    const trayOrigin = this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y };
+    this.dragState = {
+      slotIndex: index,
+      pointerId: pointer.id,
+      piece,
+      trayOrigin,
+      dragOffset: this.getDragOffset(),
+      ghostSize: this.getGhostPieceSize(),
+      ghost: null,
+      moved: false,
+      returning: false,
+      startPoint: { x: pointer.x, y: pointer.y }
+    };
+    this.previewState = null;
+    this.hoverCoord = null;
+    this.emitStatus(`Piece ${index + 1} selected.`);
+    this.redraw();
+  }
+
+  placeActivePiece(preferredAnchor) {
+    const piece = getActiveTrayPiece(this.selectionState, this.tray);
 
     if (!piece) {
       this.emitStatus('Choose a piece first.');
       return;
     }
 
-    const anchor = findBestPlacementAnchor(this.board, piece, preferredAnchor, 2);
+    const preview = this.resolvePreview(piece, preferredAnchor);
+    this.previewState = preview;
+    this.hoverCoord = preview.previewAnchor;
 
-    if (!anchor) {
+    if (!preview.valid) {
       this.boardView.showInvalid(preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
-      this.emitStatus('Not there. Try a nearby open cell.');
+      this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
+      this.emitStatus('Not there. Try an open honeycomb space.');
       this.playTone(180, 0.04);
-      this.hoverCoord = preferredAnchor;
       this.redraw();
       return;
     }
 
     this.undoSnapshot = this.createUndoSnapshot();
+    const anchor = preview.placementAnchor;
     this.board.placePiece(piece, anchor);
     this.placements += 1;
     const placePoints = this.scoreModel.addPlacement(piece.cells.length);
+    this.redraw();
     this.boardView.showScorePop(anchor, `+${placePoints}`);
     this.playTone(440, 0.05);
 
@@ -122,21 +237,27 @@ export class GameScene extends Phaser.Scene {
       const bloomPoints = this.scoreModel.addBloomResult(bloomResult);
       this.boardView.showBloom(bloomResult);
       this.boardView.showScorePop(anchor, `+${bloomPoints}`);
+      this.lockInputFor(this.configData.gameFeel?.bloomAnimationMs ?? 480);
       this.playTone(660, 0.08);
       this.emitStatus(createBloomMessage(bloomResult));
     } else {
       this.emitStatus('Nice placement.');
     }
 
-    this.tray[this.selectedIndex] = null;
+    const used = useActiveTrayPiece({
+      tray: this.tray,
+      activePieceIndex: this.selectionState.activePieceIndex
+    });
+    this.tray = used.tray;
+    this.selectionState = clearActivePieceAfterPlacement(used);
+    this.previewState = null;
+    this.hoverCoord = null;
+
     if (!this.hasTrayPieces()) {
       this.tray = this.generator.generateTray({
         score: this.scoreModel.score,
         placements: this.placements
       });
-      this.selectedIndex = 0;
-    } else {
-      this.selectedIndex = this.findNextPieceIndex(this.selectedIndex);
     }
 
     this.checkGameOver();
@@ -170,11 +291,17 @@ export class GameScene extends Phaser.Scene {
 
     this.board.restore(this.undoSnapshot.board);
     this.tray = cloneTray(this.undoSnapshot.tray);
-    this.selectedIndex = this.undoSnapshot.selectedIndex;
+    this.selectionState = createTraySelectionState({
+      activePieceIndex: this.undoSnapshot.activePieceIndex
+    });
+    this.clearDragState();
+    this.previewState = null;
+    this.hoverCoord = null;
     this.placements = this.undoSnapshot.placements;
     this.scoreModel.restore(this.undoSnapshot.score);
     this.undoSnapshot = null;
     this.isGameOver = false;
+    this.inputLockedUntil = 0;
     this.emitStatus('Move undone.');
     this.redraw();
     this.emitStats();
@@ -185,10 +312,13 @@ export class GameScene extends Phaser.Scene {
     this.scoreModel = new ScoreModel(this.configData.score);
     this.generator = new PieceGenerator({ config: this.configData });
     this.tray = this.generator.generateTray({ score: 0, placements: 0 });
-    this.selectedIndex = 0;
+    this.selectionState = createTraySelectionState();
+    this.clearDragState();
+    this.previewState = null;
     this.placements = 0;
     this.undoSnapshot = null;
     this.isGameOver = false;
+    this.inputLockedUntil = 0;
     this.hoverCoord = null;
     this.emitStatus('New game started. Tap a piece, then tap the board.');
     this.redraw();
@@ -209,7 +339,7 @@ export class GameScene extends Phaser.Scene {
     return {
       board: this.board.snapshot(),
       tray: cloneTray(this.tray),
-      selectedIndex: this.selectedIndex,
+      activePieceIndex: this.selectionState.activePieceIndex,
       placements: this.placements,
       score: this.scoreModel.snapshot()
     };
@@ -220,21 +350,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const piece = this.tray[this.selectedIndex] ?? null;
-    const previewAnchor = piece && this.hoverCoord
-      ? findBestPlacementAnchor(this.board, piece, this.hoverCoord, 2)
-      : null;
-    const previewValid = Boolean(previewAnchor);
+    const piece = getActiveTrayPiece(this.selectionState, this.tray);
+    const preview = piece && this.hoverCoord
+      ? this.resolvePreview(piece, this.hoverCoord)
+      : this.previewState;
     this.boardView.render({
       board: this.board,
       selectedPiece: piece,
-      hoverCoord: previewAnchor ?? this.hoverCoord,
-      previewValid,
+      hoverCoord: preview?.previewAnchor ?? this.hoverCoord,
+      previewValid: Boolean(preview?.valid),
+      previewTargets: preview?.targets ?? [],
       showOpenAnchors: Boolean(piece)
     });
     this.trayView.render({
       tray: this.tray,
-      selectedIndex: this.selectedIndex
+      selectedIndex: this.selectionState.activePieceIndex
     });
   }
 
@@ -242,19 +372,150 @@ export class GameScene extends Phaser.Scene {
     return this.tray.some(Boolean);
   }
 
-  findNextPieceIndex(startIndex) {
-    for (let step = 1; step <= this.tray.length; step += 1) {
-      const index = (startIndex + step) % this.tray.length;
-      if (this.tray[index]) {
-        return index;
-      }
-    }
+  resolvePreview(piece, anchor) {
+    return resolvePlacementPreview(this.board, piece, anchor, 2);
+  }
 
-    return 0;
+  getNearestBoardAnchor(point, { tolerance }) {
+    return this.boardView.coordFromPoint(point, { tolerance });
+  }
+
+  getPreviewTolerance() {
+    return this.scale.width < 520 ? 1.85 : 1.35;
   }
 
   getTouchTolerance() {
     return this.scale.width < 520 ? 1.15 : 0.82;
+  }
+
+  updateDrag(pointer) {
+    const state = this.dragState;
+    if (!state || state.returning) {
+      return;
+    }
+
+    const distance = Math.hypot(pointer.x - state.startPoint.x, pointer.y - state.startPoint.y);
+    if (!state.moved && distance < DRAG_MOVE_THRESHOLD) {
+      return;
+    }
+
+    state.moved = true;
+    state.ghost ??= this.createDragGhost(state);
+
+    const anchorPoint = this.getDragAnchorPoint(pointer, state);
+    this.drawDragGhost(state, anchorPoint);
+
+    const anchor = this.getNearestBoardAnchor(anchorPoint, { tolerance: this.getPreviewTolerance() });
+    this.previewState = this.resolvePreview(state.piece, anchor);
+    this.hoverCoord = this.previewState.previewAnchor;
+
+    if (this.previewState.valid) {
+      this.emitStatus('Release to place.');
+    } else if (this.previewState.previewAnchor) {
+      this.emitStatus('Not there. Try an open honeycomb space.');
+    } else {
+      this.emitStatus('Drag over the Honeycomb Board.');
+    }
+
+    this.redraw();
+  }
+
+  getDragAnchorPoint(pointer, state) {
+    return {
+      x: pointer.x + state.dragOffset.x,
+      y: pointer.y + state.dragOffset.y
+    };
+  }
+
+  getDragOffset() {
+    return {
+      x: 0,
+      y: this.scale.width < 520 ? -40 : -30
+    };
+  }
+
+  getGhostPieceSize() {
+    return this.scale.width < 520 ? 24 : 28;
+  }
+
+  createDragGhost(state) {
+    const ghost = this.add.graphics();
+    ghost.setDepth(100);
+    ghost.setAlpha(0.92);
+    state.ghost = ghost;
+    this.drawDragGhost(state, state.trayOrigin);
+    return ghost;
+  }
+
+  drawDragGhost(state, center) {
+    if (!state.ghost) {
+      return;
+    }
+
+    state.ghostCenter = { x: center.x, y: center.y };
+    state.ghost.clear();
+    drawPieceOnGraphics(state.ghost, state.piece, center.x, center.y, state.ghostSize, 0.9);
+  }
+
+  animateGhostBackToTray(state) {
+    if (!state || state.returning) {
+      return;
+    }
+
+    state.returning = true;
+    this.previewState = null;
+    this.hoverCoord = null;
+    this.redraw();
+
+    if (!state.ghost) {
+      this.dragState = null;
+      return;
+    }
+
+    const start = getDragGhostCenter(state);
+    const target = this.trayView.getSlotCenter(state.slotIndex) ?? state.trayOrigin;
+    const tweenTarget = { x: start.x, y: start.y, alpha: 0.92 };
+
+    this.tweens.add({
+      targets: tweenTarget,
+      x: target.x,
+      y: target.y,
+      alpha: 0.34,
+      duration: 210,
+      ease: 'Cubic.easeOut',
+      onUpdate: () => {
+        state.ghost.setAlpha(tweenTarget.alpha);
+        this.drawDragGhost(state, tweenTarget);
+      },
+      onComplete: () => {
+        this.destroyDragGhost(state);
+        if (this.dragState === state) {
+          this.dragState = null;
+        }
+        this.redraw();
+      }
+    });
+  }
+
+  destroyDragGhost(state = this.dragState) {
+    if (state?.ghost) {
+      this.tweens.killTweensOf(state.ghost);
+      state.ghost.destroy();
+      state.ghost = null;
+    }
+  }
+
+  clearDragState() {
+    this.destroyDragGhost();
+    this.dragState = null;
+  }
+
+  isInputLocked() {
+    return this.time.now < this.inputLockedUntil;
+  }
+
+  lockInputFor(duration) {
+    this.inputLockedUntil = Math.max(this.inputLockedUntil, this.time.now + duration);
   }
 
   emitStats() {
@@ -307,4 +568,27 @@ function createBloomMessage(result) {
   }
 
   return 'Bloom!';
+}
+
+function getDragGhostCenter(state) {
+  return state.ghostCenter ?? state.trayOrigin;
+}
+
+function drawPieceOnGraphics(graphics, piece, centerX, centerY, size, alpha = 1) {
+  const points = piece.cells.map((cell) => axialToPixel({ q: cell.dq, r: cell.dr }, size));
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const offsetX = centerX - (minX + maxX) / 2;
+  const offsetY = centerY - (minY + maxY) / 2;
+
+  piece.cells.forEach((cell, index) => {
+    drawHex(graphics, points[index].x + offsetX, points[index].y + offsetY, size, {
+      fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
+      alpha,
+      line: 0xffffff,
+      lineAlpha: 0.96
+    });
+  });
 }

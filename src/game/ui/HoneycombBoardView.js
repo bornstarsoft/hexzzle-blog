@@ -22,7 +22,7 @@ export class HoneycombBoardView {
     };
   }
 
-  render({ board, selectedPiece, hoverCoord, previewValid, showOpenAnchors }) {
+  render({ board, selectedPiece, hoverCoord, previewValid, previewTargets = [], showOpenAnchors }) {
     this.board = board;
     this.updateLayout();
     this.graphics.clear();
@@ -44,7 +44,7 @@ export class HoneycombBoardView {
     }
 
     if (selectedPiece && hoverCoord) {
-      this.drawPreview(selectedPiece, hoverCoord, previewValid);
+      this.drawPreview(selectedPiece, hoverCoord, previewValid, previewTargets);
     }
   }
 
@@ -74,22 +74,26 @@ export class HoneycombBoardView {
   }
 
   coordFromPointer(pointer, { tolerance = 0.75 } = {}) {
+    return this.coordFromPoint(pointer, { tolerance });
+  }
+
+  coordFromPoint(point, { tolerance = 0.75 } = {}) {
     if (!this.board) {
       return null;
     }
 
     const local = {
-      x: pointer.x - this.layout.centerX,
-      y: pointer.y - this.layout.centerY
+      x: point.x - this.layout.centerX,
+      y: point.y - this.layout.centerY
     };
     const coord = pixelToAxial(local, this.layout.hexSize);
-    const nearestCoord = this.board.hasCoord(coord) ? coord : this.findNearestCoord(pointer);
+    const nearestCoord = this.board.hasCoord(coord) ? coord : this.findNearestCoord(point);
     if (!nearestCoord) {
       return null;
     }
 
     const center = this.toScreen(nearestCoord);
-    const distance = Math.hypot(pointer.x - center.x, pointer.y - center.y);
+    const distance = Math.hypot(point.x - center.x, point.y - center.y);
     const allowedDistance = this.layout.hexSize * tolerance;
 
     return distance <= allowedDistance ? nearestCoord : null;
@@ -123,21 +127,33 @@ export class HoneycombBoardView {
     });
   }
 
-  drawPreview(piece, anchor, isValid) {
+  drawPreview(piece, anchor, isValid, targets = []) {
     const fill = isValid ? 0x18756b : 0xef5a5a;
     const line = isValid ? 0x0f5b55 : 0x9b3131;
+    const targetByOffset = new Map(targets.map((target) => [
+      `${target.q},${target.r}`,
+      target
+    ]));
 
     piece.cells.forEach((cell) => {
-      const point = this.toScreen({
+      const coord = {
         q: anchor.q + cell.dq,
         r: anchor.r + cell.dr
-      });
+      };
+      const target = targetByOffset.get(`${coord.q},${coord.r}`);
+      const point = this.toScreen(coord);
+      const targetBlocked = target?.blocked || target?.exists === false;
       drawHex(this.overlay, point.x, point.y, this.layout.hexSize * 0.92, {
         fill,
-        alpha: isValid ? 0.22 : 0.2,
-        line,
-        lineAlpha: 0.92
+        alpha: isValid ? 0.3 : targetBlocked ? 0.36 : 0.28,
+        line: targetBlocked ? 0x7f1d1d : line,
+        lineAlpha: isValid ? 0.95 : 1
       });
+
+      if (!isValid && targetBlocked) {
+        this.overlay.lineStyle(Math.max(2, this.layout.hexSize * 0.08), 0xef5a5a, 0.88);
+        this.overlay.strokeCircle(point.x, point.y, this.layout.hexSize * 0.38);
+      }
     });
   }
 
@@ -147,6 +163,7 @@ export class HoneycombBoardView {
     }
 
     const flash = this.scene.add.graphics();
+    flash.setDepth(45);
     piece.cells.forEach((cell) => {
       const point = this.toScreen({
         q: anchor.q + cell.dq,
@@ -154,9 +171,9 @@ export class HoneycombBoardView {
       });
       drawHex(flash, point.x, point.y, this.layout.hexSize * 0.95, {
         fill: 0xef5a5a,
-        alpha: 0.18,
+        alpha: 0.32,
         line: 0xef5a5a,
-        lineAlpha: 0.75
+        lineAlpha: 0.95
       });
     });
     this.scene.tweens.add({
@@ -171,26 +188,71 @@ export class HoneycombBoardView {
     const cells = result.scans.flatMap((scan) => scan.flatMap((group) => (
       group.cells.map((coord) => ({ ...coord, color: group.color }))
     )));
-    const bloom = this.scene.add.graphics();
+    if (cells.length === 0) {
+      return;
+    }
 
-    cells.forEach((cell) => {
-      const point = this.toScreen(cell);
-      drawHex(bloom, point.x, point.y, this.layout.hexSize * 1.06, {
-        fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
-        alpha: 0.46,
-        line: 0xffffff,
-        lineAlpha: 0.9
-      });
-    });
+    const duration = Math.min(550, Math.max(350, this.scene.configData.gameFeel?.bloomAnimationMs ?? 460));
+    const center = getCellCenter(cells.map((cell) => this.toScreen(cell)));
+    const label = this.scene.add.text(center.x, center.y - this.layout.hexSize * 0.6, createBloomLabel(result), {
+      fontFamily: 'Inter, Arial, sans-serif',
+      fontSize: `${Math.round(Math.max(22, this.layout.hexSize * 0.82))}px`,
+      fontStyle: '800',
+      color: '#0f5b55',
+      backgroundColor: 'rgba(255,255,255,0.88)',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(0.5).setDepth(75).setScale(0.9);
 
     this.scene.tweens.add({
-      targets: bloom,
+      targets: label,
+      y: label.y - this.layout.hexSize * 0.8,
       alpha: 0,
-      scaleX: 1.12,
-      scaleY: 1.12,
-      duration: this.scene.configData.gameFeel?.bloomAnimationMs ?? 350,
-      ease: 'Sine.easeOut',
-      onComplete: () => bloom.destroy()
+      scale: 1.12,
+      duration,
+      ease: 'Cubic.easeOut',
+      onComplete: () => label.destroy()
+    });
+
+    cells.forEach((cell, index) => {
+      const point = this.toScreen(cell);
+      const color = COLOR_MAP[cell.color] ?? 0xf2c94c;
+      const bloom = this.scene.add.container(point.x, point.y).setDepth(62).setScale(0.82);
+      const hex = this.scene.add.graphics();
+      const ring = this.scene.add.graphics();
+      const sparkle = this.scene.add.graphics();
+
+      drawHex(hex, 0, 0, this.layout.hexSize * 1.02, {
+        fill: color,
+        alpha: 0.55,
+        line: 0xffffff,
+        lineAlpha: 0.95
+      });
+
+      ring.lineStyle(Math.max(2, this.layout.hexSize * 0.07), 0xffffff, 0.8);
+      ring.strokeCircle(0, 0, this.layout.hexSize * 0.82);
+
+      sparkle.fillStyle(0xffffff, 0.9);
+      for (let petal = 0; petal < 6; petal += 1) {
+        const angle = Math.PI / 3 * petal;
+        sparkle.fillCircle(
+          Math.cos(angle) * this.layout.hexSize * 0.58,
+          Math.sin(angle) * this.layout.hexSize * 0.58,
+          Math.max(2.2, this.layout.hexSize * 0.08)
+        );
+      }
+
+      bloom.add([hex, ring, sparkle]);
+      const delay = Math.min(150, index * 18);
+      this.scene.tweens.add({
+        targets: bloom,
+        alpha: 0,
+        scaleX: 1.36,
+        scaleY: 1.36,
+        duration,
+        delay,
+        ease: 'Cubic.easeOut',
+        onComplete: () => bloom.destroy()
+      });
     });
   }
 
@@ -203,7 +265,7 @@ export class HoneycombBoardView {
       color: '#17352e',
       backgroundColor: 'rgba(255,255,255,0.82)',
       padding: { x: 8, y: 4 }
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(76);
 
     this.scene.tweens.add({
       targets: text,
@@ -214,6 +276,25 @@ export class HoneycombBoardView {
       onComplete: () => text.destroy()
     });
   }
+}
+
+function getCellCenter(points) {
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length
+  };
+}
+
+function createBloomLabel(result) {
+  if (result.chainCount > 1) {
+    return `Chain x${result.chainCount}`;
+  }
+
+  if (result.groupsCleared > 1) {
+    return 'Double Bloom!';
+  }
+
+  return 'Bloom!';
 }
 
 export function drawHex(graphics, x, y, size, { fill, alpha = 1, line, lineAlpha = 1 }) {

@@ -15,6 +15,8 @@ export class TrayView {
     this.scene = scene;
     this.graphics = scene.add.graphics();
     this.hitAreas = [];
+    this.slotCenters = [];
+    this.lastPieceSize = 22;
   }
 
   render({ tray, selectedIndex }) {
@@ -30,6 +32,7 @@ export class TrayView {
     const bottomOffset = width < 460 ? 96 : width < 700 ? 86 : width < 900 ? 122 : 62;
     const startX = (width - totalWidth) / 2;
     const y = height - pieceHeight - bottomOffset;
+    const pieceSize = width < 460 ? 19 : 22;
 
     for (let index = 0; index < 3; index += 1) {
       const x = startX + index * (pieceWidth + gap);
@@ -37,16 +40,18 @@ export class TrayView {
       const selected = index === selectedIndex;
 
       this.hitAreas[index] = { x, y, width: pieceWidth, height: pieceHeight };
+      this.slotCenters[index] = { x: x + pieceWidth / 2, y: y + pieceHeight / 2 };
+      this.lastPieceSize = pieceSize;
       this.graphics.fillStyle(selected && piece ? 0xdff5ea : 0xffffff, piece ? 0.96 : 0.48);
       this.graphics.lineStyle(selected && piece ? 3 : 1.5, selected && piece ? 0x18756b : 0xd8e4dc, piece ? 1 : 0.7);
       this.graphics.fillRoundedRect(x, y, pieceWidth, pieceHeight, 8);
       this.graphics.strokeRoundedRect(x, y, pieceWidth, pieceHeight, 8);
 
       if (piece) {
-        this.drawPiece(piece, x + pieceWidth / 2, y + pieceHeight / 2, width < 460 ? 19 : 22);
+        this.drawPiece(piece, this.slotCenters[index].x, this.slotCenters[index].y, pieceSize);
       } else {
         this.graphics.fillStyle(0xd8e4dc, 0.34);
-        this.graphics.fillCircle(x + pieceWidth / 2, y + pieceHeight / 2, 8);
+        this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 8);
       }
     }
   }
@@ -79,5 +84,13 @@ export class TrayView {
     ));
 
     return index === -1 ? null : index;
+  }
+
+  getSlotCenter(index) {
+    return this.slotCenters[index] ? { ...this.slotCenters[index] } : null;
+  }
+
+  getPieceSize() {
+    return this.lastPieceSize;
   }
 }
