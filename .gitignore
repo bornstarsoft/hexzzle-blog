@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Hugo generated output
+/public/
+/resources/
+.hugo_build.lock
+hugo_stats.json
+
+# Node generated output
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Hexzzle generated game bundle
+/static/game/hexzzle/hexzzle-game.js
+
+# Backups and editor files
+*~
+*.swp
+*.bak
+*.tmp
+.vscode/
+.idea/
+*.code-workspace
+
+# Environment files
+.env
+.env.*
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+
+# Build caches
+dist/
+build/
+
+# Misc
+Thumbs.db

@@ -1,0 +1,53 @@
+{{ define "main" }}
+  <section class="hero">
+    <div class="hero__content">
+      <p class="eyebrow">Color Hive Puzzle Online</p>
+      <h1>Hexzzle</h1>
+      <p class="hero__subtitle">A free color hive puzzle you can play in your browser.</p>
+      <div class="hero__actions" aria-label="Primary actions">
+        <a class="button button--primary" href="/play/">Play Now</a>
+        <a class="button button--secondary" href="/guide/">How to Play</a>
+      </div>
+    </div>
+    <div class="hero__board" aria-hidden="true">
+      {{ range seq 1 19 }}
+        <span></span>
+      {{ end }}
+    </div>
+  </section>
+
+  <section class="page-section">
+    <div class="section-grid section-grid--intro">
+      <div>
+        <p class="eyebrow">What is Hexzzle?</p>
+        <h2>Place color. Connect color. Bloom clear.</h2>
+      </div>
+      <p>Hexzzle is a Honeycomb Color Puzzle built for quick browser play. Drop colorful Hive Pieces onto a 37-cell board, connect 6 or more matching colors, and clear space with a gentle Bloom Clear.</p>
+    </div>
+  </section>
+
+  <section class="page-section page-section--band">
+    <div class="feature-grid">
+      <article>
+        <h2>How to play</h2>
+        <p>Choose a piece, tap an empty spot, and build connected color groups. Scattered colors do not clear, so shape matters.</p>
+      </article>
+      <article>
+        <h2>Why it is fun</h2>
+        <p>Every Bloom Clear opens the board in a new way. The puzzle stays calm, but the tray keeps asking for tiny choices.</p>
+      </article>
+      <article>
+        <h2>Play on mobile or desktop</h2>
+        <p>The board, tray, and controls are sized for short sessions on phones, tablets, and desktop browsers.</p>
+      </article>
+      <article>
+        <h2>Share your Bloom score</h2>
+        <p>After game over, share your score, total Blooms, best chain, and best group without logging in.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="page-section page-section--narrow">
+    {{ partial "related-games.html" . }}
+  </section>
+{{ end }}

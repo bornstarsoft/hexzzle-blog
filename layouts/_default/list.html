@@ -1,0 +1,16 @@
+{{ define "main" }}
+  <section class="page-section page-section--narrow">
+    <div class="prose">
+      <h1>{{ .Title }}</h1>
+      {{ with .Content }}{{ . }}{{ end }}
+    </div>
+    <div class="post-list" aria-label="Posts">
+      {{ range .Paginator.Pages }}
+        <article class="post-list__item">
+          <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+          <p>{{ .Summary | plainify | truncate 160 }}</p>
+        </article>
+      {{ end }}
+    </div>
+  </section>
+{{ end }}

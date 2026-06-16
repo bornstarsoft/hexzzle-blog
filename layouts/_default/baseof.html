@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="{{ .Site.LanguageCode | default "en" }}">
+  <head>
+    {{ partial "head.html" . }}
+  </head>
+  <body class="{{ if .IsHome }}is-home{{ else }}is-page{{ end }}">
+    {{ partial "header.html" . }}
+    <main id="main-content">
+      {{ block "main" . }}{{ end }}
+    </main>
+    {{ partial "footer.html" . }}
+    {{ $siteJS := resources.Get "js/site.js" | js.Build (dict "minify" hugo.IsProduction) | fingerprint }}
+    <script src="{{ $siteJS.RelPermalink }}" integrity="{{ $siteJS.Data.Integrity }}" defer></script>
+  </body>
+</html>

@@ -1,0 +1,262 @@
+.game-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 20px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.game-hero__copy h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 8vw, 4.8rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.game-hero__copy p:last-child {
+  max-width: 620px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 1.08rem;
+}
+
+.game-scorebar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.game-scorebar div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.game-scorebar span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.game-scorebar strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: clamp(1.1rem, 4vw, 1.55rem);
+  line-height: 1;
+}
+
+.game-scorebar__share {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.game-scorebar__share[hidden] {
+  display: none;
+}
+
+.hexzzle-shell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff, #f7fbf8);
+  box-shadow: var(--shadow);
+}
+
+.hexzzle-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 1.2rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.icon-button:hover,
+.icon-button[aria-pressed="true"] {
+  border-color: var(--teal);
+  color: var(--teal-dark);
+}
+
+.icon-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.hexzzle-canvas {
+  width: 100%;
+  height: min(72vh, 680px);
+  min-height: 540px;
+}
+
+.hexzzle-canvas canvas {
+  display: block;
+}
+
+.hexzzle-status {
+  min-height: 34px;
+  margin: 0;
+  padding: 0 16px 16px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.result-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.result-panel[hidden] {
+  display: none;
+}
+
+.result-card {
+  padding: 18px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(223, 245, 234, 0.9), rgba(255, 255, 255, 0.95)),
+    #fff;
+  border: 1px solid var(--line);
+}
+
+.result-card h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.45rem;
+}
+
+.result-card > strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--teal-dark);
+  font-size: clamp(2.8rem, 12vw, 5rem);
+  line-height: 0.95;
+}
+
+.result-card dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.result-card dl div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.result-card dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-card dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.result-card__motif {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.result-card__motif span {
+  width: 26px;
+  aspect-ratio: 1.08;
+  clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
+  background: var(--amber);
+}
+
+.result-card__motif span:nth-child(2) {
+  background: var(--coral);
+}
+
+.result-card__motif span:nth-child(3) {
+  background: var(--blue);
+}
+
+.result-card__motif span:nth-child(4) {
+  background: #3fbf7f;
+}
+
+.result-card__motif span:nth-child(5) {
+  background: var(--purple);
+}
+
+.result-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .game-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hexzzle-canvas {
+    height: 620px;
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 460px) {
+  .game-scorebar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-scorebar div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .hexzzle-toolbar {
+    top: 8px;
+    right: 8px;
+  }
+
+  .hexzzle-canvas {
+    height: 600px;
+    min-height: 500px;
+  }
+
+  .result-card dl {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .result-panel__actions .button {
+    flex: 1 1 132px;
+  }
+}

@@ -1,0 +1,23 @@
+{{ define "main" }}
+  <article class="page-section page-section--narrow">
+    {{ if .Params.game_shell }}
+      {{ partial "game-shell.html" . }}
+    {{ else }}
+      <div class="prose">
+        {{ if eq .Section "posts" }}
+          <h1>{{ .Title }}</h1>
+        {{ end }}
+        {{ .Content }}
+      </div>
+    {{ end }}
+  </article>
+
+  {{ if .Params.game_shell }}
+    <section class="page-section page-section--narrow game-copy">
+      <div class="prose">
+        {{ .Content }}
+      </div>
+      {{ partial "related-games.html" . }}
+    </section>
+  {{ end }}
+{{ end }}

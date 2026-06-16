@@ -1,0 +1,20 @@
+{
+  "score": {
+    "placeCell": 1,
+    "bloomBase": 100,
+    "extraCellBonus": 25,
+    "multiBloomBonus": 75,
+    "chainMultiplierStep": 0.5,
+    "maxChainMultiplier": 2
+  },
+  "difficulty": {
+    "startColors": 4,
+    "addFifthColorAtScore": 1200,
+    "addSixthColorAtScore": 3500
+  },
+  "gameFeel": {
+    "bloomAnimationMs": 350,
+    "placeAnimationMs": 120,
+    "invalidFeedbackMs": 180
+  }
+}

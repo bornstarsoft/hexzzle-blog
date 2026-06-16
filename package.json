@@ -1,0 +1,16 @@
+{
+  "name": "hexzzle-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-game.mjs",
+    "test": "node --test \"src/game/tests/*.test.js\""
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}
