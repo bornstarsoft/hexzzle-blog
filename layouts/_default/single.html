@@ -1,0 +1,10 @@
+{{ define "main" }}
+  <article class="page-section page-section--narrow">
+    <div class="prose">
+      {{ if eq .Section "posts" }}
+        <h1>{{ .Title }}</h1>
+      {{ end }}
+      {{ .Content }}
+    </div>
+  </article>
+{{ end }}

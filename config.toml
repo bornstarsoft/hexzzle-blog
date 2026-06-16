@@ -1,11 +1,35 @@
 
 baseURL = "https://hexzzle.com/"
 languageCode = "en-us"
-title = "Hexzzle"
+title = "Hexzzle - Color Hive Puzzle Online"
 theme = "ananke"
-paginate = 12
 enableRobotsTXT = true
 buildFuture = false
 
+[pagination]
+  pagerSize = 12
+
 [params]
-  mainSections = ["posts"]
+  description = "Play Hexzzle, a free honeycomb color puzzle online. Place colorful pieces, connect 6 or more matching colors, and make them bloom."
+  mainSections = []
+  ogImage = "/images/hexzzle-og.svg"
+
+[[menu.main]]
+  name = "Play"
+  url = "/play/"
+  weight = 10
+
+[[menu.main]]
+  name = "Daily"
+  url = "/daily/"
+  weight = 20
+
+[[menu.main]]
+  name = "Guide"
+  url = "/guide/"
+  weight = 30
+
+[[menu.main]]
+  name = "About"
+  url = "/about/"
+  weight = 40

@@ -1,0 +1,43 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{ $title := cond .IsHome "Hexzzle - Free Color Hive Puzzle Online" (or .Params.meta_title (printf "%s | %s" .Title .Site.Title)) }}
+{{ $description := or .Params.description .Site.Params.description }}
+<title>{{ $title }}</title>
+<meta name="description" content="{{ $description }}">
+<link rel="canonical" href="{{ .Permalink }}">
+{{ partial "social-meta.html" . }}
+{{ $mainCSS := resources.Get "css/main.css" | minify | fingerprint }}
+<link rel="stylesheet" href="{{ $mainCSS.RelPermalink }}" integrity="{{ $mainCSS.Data.Integrity }}">
+{{ if or .IsHome .Params.game_embed }}
+  <link rel="stylesheet" href="/game/hexzzle/hexzzle-game.css">
+{{ end }}
+<script type="application/ld+json">
+{{ dict
+  "@context" "https://schema.org"
+  "@type" "WebSite"
+  "name" "Hexzzle"
+  "url" .Site.BaseURL
+  "description" .Site.Params.description
+| jsonify | safeJS }}
+</script>
+<script type="application/ld+json">
+{{ dict
+  "@context" "https://schema.org"
+  "@type" "Organization"
+  "name" "Bornstar Soft"
+  "url" .Site.BaseURL
+| jsonify | safeJS }}
+</script>
+{{ if or .IsHome .Params.game_embed }}
+<script type="application/ld+json">
+{{ dict
+  "@context" "https://schema.org"
+  "@type" "VideoGame"
+  "name" "Hexzzle"
+  "applicationCategory" "GameApplication"
+  "operatingSystem" "Web"
+  "url" (absURL "/play/")
+  "description" "Place colorful pieces on a honeycomb board. Connect 6 or more matching colors to make them bloom and clear space."
+| jsonify | safeJS }}
+</script>
+{{ end }}

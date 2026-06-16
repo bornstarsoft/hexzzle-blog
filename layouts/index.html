@@ -1,0 +1,51 @@
+{{ define "main" }}
+  <section class="hero hero--game-first">
+    <div class="hero__content hero__content--game-first">
+      <p class="eyebrow">Color Hive Puzzle Online</p>
+      <h1>Hexzzle</h1>
+      <p class="hero__subtitle">A free color hive puzzle you can play in your browser.</p>
+      <p class="hero__rule">Place colorful pieces. Connect 6 or more matching colors. Make the hive bloom.</p>
+      <div class="hero__actions" aria-label="Primary actions">
+        <a class="button button--secondary" href="/play/">Open Game Page</a>
+        <a class="button button--secondary" href="/guide/">How to Play</a>
+      </div>
+    </div>
+    {{ partial "hexzzle-game-embed.html" (dict "showIntro" false) }}
+    <p class="home-game-helper">Connect 6 or more matching colors to make them bloom. Scattered colors do not count.</p>
+  </section>
+
+  <section class="page-section">
+    <div class="section-grid section-grid--intro">
+      <div>
+        <p class="eyebrow">What is Hexzzle?</p>
+        <h2>Place color. Connect color. Bloom clear.</h2>
+      </div>
+      <p>Hexzzle is a Honeycomb Color Puzzle built for quick browser play. Drop colorful Hive Pieces onto a 37-cell board, connect 6 or more matching colors, and clear space with a gentle Bloom Clear.</p>
+    </div>
+  </section>
+
+  <section class="page-section page-section--band">
+    <div class="feature-grid">
+      <article>
+        <h2>How to play</h2>
+        <p>Choose a piece, tap an empty spot, and build connected color groups. Scattered colors do not clear, so shape matters.</p>
+      </article>
+      <article>
+        <h2>Why it is fun</h2>
+        <p>Every Bloom Clear opens the board in a new way. The puzzle stays calm, but the tray keeps asking for tiny choices.</p>
+      </article>
+      <article>
+        <h2>Play on mobile or desktop</h2>
+        <p>The board, tray, and controls are sized for short sessions on phones, tablets, and desktop browsers.</p>
+      </article>
+      <article>
+        <h2>Share your Bloom score</h2>
+        <p>After game over, share your score, total Blooms, best chain, and best group without logging in.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="page-section page-section--narrow">
+    {{ partial "related-games.html" . }}
+  </section>
+{{ end }}

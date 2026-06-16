@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Hexzzle - Color Hive Puzzle Online</title>
+  <desc id="desc">A clean honeycomb board with colorful bloom cells for Hexzzle.</desc>
+  <rect width="1200" height="630" fill="#f8faf7"/>
+  <rect x="60" y="58" width="1080" height="514" rx="34" fill="#ffffff" stroke="#d8e4dc" stroke-width="3"/>
+  <g transform="translate(780 150)">
+    <polygon points="0,-52 45,-26 45,26 0,52 -45,26 -45,-26" fill="#ef5a5a"/>
+    <polygon points="92,-52 137,-26 137,26 92,52 47,26 47,-26" fill="#2f80ed"/>
+    <polygon points="46,28 91,54 91,106 46,132 1,106 1,54" fill="#f2c94c"/>
+    <polygon points="-46,28 -1,54 -1,106 -46,132 -91,106 -91,54" fill="#3fbf7f"/>
+    <polygon points="138,28 183,54 183,106 138,132 93,106 93,54" fill="#9b6ee8"/>
+    <polygon points="0,108 45,134 45,186 0,212 -45,186 -45,134" fill="#f2994a"/>
+    <polygon points="92,108 137,134 137,186 92,212 47,186 47,134" fill="#ef5a5a"/>
+  </g>
+  <text x="120" y="238" fill="#17352e" font-family="Inter, Arial, sans-serif" font-size="94" font-weight="800">Hexzzle</text>
+  <text x="126" y="310" fill="#31534c" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="600">Color Hive Puzzle Online</text>
+  <text x="126" y="380" fill="#58736c" font-family="Inter, Arial, sans-serif" font-size="26">Place colorful pieces. Connect 6 or more.</text>
+  <text x="126" y="420" fill="#58736c" font-family="Inter, Arial, sans-serif" font-size="26">Make them bloom and clear space.</text>
+</svg>
