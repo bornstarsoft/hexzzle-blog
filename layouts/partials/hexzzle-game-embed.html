@@ -19,14 +19,14 @@
   {{ end }}
 
   <section class="hexzzle-shell" data-hexzzle-shell>
-    <div class="hexzzle-toolbar" aria-label="Game controls">
-      <button class="icon-button" type="button" data-hexzzle-restart aria-label="Restart game" title="Restart game">↻</button>
-      <button class="icon-button" type="button" data-hexzzle-undo aria-label="Undo one move" title="Undo one move" disabled>↶</button>
-      <button class="icon-button" type="button" data-hexzzle-sound aria-label="Sound off" title="Sound toggle">♪</button>
-    </div>
     <div id="hexzzle-game" class="hexzzle-canvas" role="application" aria-label="Hexzzle game board"></div>
-    <p class="hexzzle-status" data-hexzzle-status aria-live="polite">Choose a Hive Piece, then place it on the Honeycomb Board.</p>
   </section>
+  <div class="hexzzle-toolbar" aria-label="Game controls">
+    <button class="icon-button" type="button" data-hexzzle-undo aria-label="Undo one move" title="Undo one move" disabled>↶</button>
+    <button class="icon-button" type="button" data-hexzzle-restart aria-label="Restart game" title="Restart game">↻</button>
+    <button class="icon-button icon-button--quiet" type="button" data-hexzzle-sound aria-label="Sound off" title="Sound toggle">♪</button>
+  </div>
+  <p class="hexzzle-status" data-hexzzle-status aria-live="polite">Tap a piece, then tap the board.</p>
 
   <section class="result-panel" data-hexzzle-result hidden aria-labelledby="result-title">
     <div class="result-card" data-hexzzle-result-card>

@@ -475,27 +475,87 @@ a {
 
 @media (max-width: 620px) {
   .site-header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
     min-height: 0;
-    padding-top: 10px;
+    padding: 6px 0;
+  }
+
+  .site-header__brand {
+    gap: 7px;
+    min-height: 40px;
+    font-size: 0.95rem;
+  }
+
+  .brand-mark {
+    width: 24px;
   }
 
   .site-nav {
-    width: 100%;
-    justify-content: flex-start;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    gap: 2px;
+    min-width: 0;
     overflow-x: auto;
     flex-wrap: nowrap;
-    padding-bottom: 4px;
   }
 
   .site-nav a {
     flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 8px;
+    font-size: 0.88rem;
   }
 
   .hero h1 {
     font-size: clamp(4rem, 24vw, 6rem);
+  }
+
+  .hero--game-first {
+    padding: 4px 0 34px;
+  }
+
+  .page-section--play {
+    padding-top: 18px;
+  }
+
+  .hero__content--game-first .eyebrow {
+    display: none;
+  }
+
+  .hero--game-first h1 {
+    font-size: 2.65rem;
+    line-height: 1;
+  }
+
+  .hero--game-first .hero__subtitle {
+    margin-top: 5px;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .hero__rule {
+    margin-top: 4px;
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+
+  .hero--game-first .hero__actions {
+    gap: 14px;
+    margin-top: 6px;
+  }
+
+  .hero--game-first .hero__actions .button {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.2em;
   }
 
   .hero__actions .button {
@@ -517,5 +577,11 @@ a {
 
   .site-footer nav {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero--game-first .hero__actions {
+    display: none;
   }
 }

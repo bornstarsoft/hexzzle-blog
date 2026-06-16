@@ -22,7 +22,7 @@ export class HoneycombBoardView {
     };
   }
 
-  render({ board, selectedPiece, hoverCoord, previewValid }) {
+  render({ board, selectedPiece, hoverCoord, previewValid, showOpenAnchors }) {
     this.board = board;
     this.updateLayout();
     this.graphics.clear();
@@ -39,6 +39,10 @@ export class HoneycombBoardView {
       });
     });
 
+    if (selectedPiece && showOpenAnchors) {
+      this.drawOpenAnchorHints(board, selectedPiece);
+    }
+
     if (selectedPiece && hoverCoord) {
       this.drawPreview(selectedPiece, hoverCoord, previewValid);
     }
@@ -47,16 +51,16 @@ export class HoneycombBoardView {
   updateLayout() {
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const topReserve = width < 460 ? 86 : 70;
-    const trayReserve = width < 460 ? 170 : 150;
+    const topReserve = width < 520 ? 48 : 58;
+    const trayReserve = width < 520 ? 132 : 150;
     const hexSize = Math.max(
-      22,
-      Math.min(34, width / 9.4, (height - topReserve - trayReserve) / 7.8)
+      21,
+      Math.min(36, width / 12.4, (height - topReserve - trayReserve) / 10)
     );
 
     this.layout = {
       centerX: width / 2,
-      centerY: topReserve + (height - topReserve - trayReserve) * 0.48,
+      centerY: topReserve + (height - topReserve - trayReserve) * 0.46,
       hexSize
     };
   }
@@ -69,7 +73,7 @@ export class HoneycombBoardView {
     };
   }
 
-  coordFromPointer(pointer) {
+  coordFromPointer(pointer, { tolerance = 0.75 } = {}) {
     if (!this.board) {
       return null;
     }
@@ -79,7 +83,44 @@ export class HoneycombBoardView {
       y: pointer.y - this.layout.centerY
     };
     const coord = pixelToAxial(local, this.layout.hexSize);
-    return this.board.hasCoord(coord) ? coord : null;
+    const nearestCoord = this.board.hasCoord(coord) ? coord : this.findNearestCoord(pointer);
+    if (!nearestCoord) {
+      return null;
+    }
+
+    const center = this.toScreen(nearestCoord);
+    const distance = Math.hypot(pointer.x - center.x, pointer.y - center.y);
+    const allowedDistance = this.layout.hexSize * tolerance;
+
+    return distance <= allowedDistance ? nearestCoord : null;
+  }
+
+  findNearestCoord(pointer) {
+    let nearest = null;
+    let nearestDistance = Infinity;
+
+    this.board.coordinates.forEach((coord) => {
+      const center = this.toScreen(coord);
+      const distance = Math.hypot(pointer.x - center.x, pointer.y - center.y);
+      if (distance < nearestDistance) {
+        nearest = coord;
+        nearestDistance = distance;
+      }
+    });
+
+    return nearest;
+  }
+
+  drawOpenAnchorHints(board, piece) {
+    board.coordinates.forEach((coord) => {
+      if (!board.canPlacePiece(piece, coord)) {
+        return;
+      }
+
+      const point = this.toScreen(coord);
+      this.overlay.fillStyle(0x18756b, 0.12);
+      this.overlay.fillCircle(point.x, point.y, Math.max(4, this.layout.hexSize * 0.14));
+    });
   }
 
   drawPreview(piece, anchor, isValid) {
@@ -101,6 +142,10 @@ export class HoneycombBoardView {
   }
 
   showInvalid(anchor, piece, duration) {
+    if (!anchor || !piece) {
+      return;
+    }
+
     const flash = this.scene.add.graphics();
     piece.cells.forEach((cell) => {
       const point = this.toScreen({

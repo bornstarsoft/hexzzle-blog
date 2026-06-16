@@ -23,9 +23,8 @@ async function startHexzzle(parent) {
   const undoButton = document.querySelector('[data-hexzzle-undo]');
   const restartButton = document.querySelector('[data-hexzzle-restart]');
   const soundButton = document.querySelector('[data-hexzzle-sound]');
-  const shareButtons = document.querySelectorAll('[data-hexzzle-share], [data-hexzzle-share-top]');
+  const shareButtons = document.querySelectorAll('[data-hexzzle-share]');
   const playAgainButton = document.querySelector('[data-hexzzle-play-again]');
-  const topShareButton = document.querySelector('[data-hexzzle-share-top]');
   const shareStatusNode = document.querySelector('[data-hexzzle-share-status]');
   let lastResult = null;
 
@@ -50,14 +49,12 @@ async function startHexzzle(parent) {
   restartButton?.addEventListener('click', () => {
     getScene()?.restartGame();
     resultPanel.hide();
-    topShareButton.hidden = true;
     lastResult = null;
   });
 
   playAgainButton?.addEventListener('click', () => {
     getScene()?.restartGame();
     resultPanel.hide();
-    topShareButton.hidden = true;
     lastResult = null;
     parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
@@ -103,7 +100,6 @@ async function startHexzzle(parent) {
   window.addEventListener('hexzzle:game-over', (event) => {
     lastResult = event.detail;
     resultPanel.show(lastResult);
-    topShareButton.hidden = false;
     shareStatusNode.textContent = '';
   });
 

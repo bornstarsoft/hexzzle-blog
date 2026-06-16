@@ -64,7 +64,7 @@ export class HexBoardModel {
   }
 
   hasAnyFit(tray) {
-    return tray.some((piece) => (
+    return tray.filter(Boolean).some((piece) => (
       this.coordinates.some((coord) => this.canPlacePiece(piece, coord))
     ));
   }

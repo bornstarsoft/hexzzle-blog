@@ -1,14 +1,14 @@
 .hexzzle-game-embed {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .game-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  gap: 20px;
+  gap: 14px;
   align-items: end;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .game-hero--compact {
@@ -18,7 +18,7 @@
 
 .game-hero--compact .game-scorebar {
   max-width: 520px;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .game-hero__copy h1 {
@@ -30,20 +30,20 @@
 
 .game-hero__copy p:last-child {
   max-width: 620px;
-  margin: 16px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 1.08rem;
+  font-size: 1rem;
 }
 
 .game-scorebar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .game-scorebar div {
   min-width: 0;
-  padding: 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -52,7 +52,7 @@
 .game-scorebar span {
   display: block;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -61,17 +61,8 @@
   display: block;
   margin-top: 2px;
   color: var(--ink);
-  font-size: clamp(1.1rem, 4vw, 1.55rem);
+  font-size: clamp(1rem, 3.6vw, 1.35rem);
   line-height: 1;
-}
-
-.game-scorebar__share {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-
-.game-scorebar__share[hidden] {
-  display: none;
 }
 
 .hexzzle-shell {
@@ -84,12 +75,10 @@
 }
 
 .hexzzle-toolbar {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .icon-button {
@@ -107,6 +96,10 @@
   cursor: pointer;
 }
 
+.icon-button--quiet {
+  opacity: 0.72;
+}
+
 .icon-button:hover,
 .icon-button[aria-pressed="true"] {
   border-color: var(--teal);
@@ -121,8 +114,8 @@
 .hexzzle-canvas {
   display: block;
   width: 100%;
-  height: clamp(620px, 78vh, 840px);
-  min-height: 620px;
+  height: clamp(560px, 70vh, 700px);
+  min-height: 560px;
   position: relative;
   overflow: hidden;
   border-radius: 24px;
@@ -136,10 +129,11 @@
 }
 
 .hexzzle-status {
-  min-height: 34px;
+  min-height: 24px;
   margin: 0;
-  padding: 0 16px 16px;
+  padding: 6px 12px 0;
   color: var(--muted);
+  font-size: 0.92rem;
   font-weight: 700;
   text-align: center;
 }
@@ -247,31 +241,39 @@
 @media (max-width: 720px) {
   .game-hero {
     grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   .hexzzle-canvas {
-    height: 720px;
-    min-height: 720px;
+    height: 590px;
+    min-height: 590px;
   }
 }
 
 @media (max-width: 460px) {
-  .game-scorebar {
-    grid-template-columns: 1fr 1fr;
+  .game-hero__copy h1 {
+    font-size: 2.1rem;
   }
 
-  .game-scorebar div:first-child {
-    grid-column: 1 / -1;
+  .game-hero__copy p:last-child {
+    margin-top: 4px;
+    font-size: 0.94rem;
+    line-height: 1.35;
+  }
+
+  .game-scorebar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .hexzzle-toolbar {
-    top: 8px;
-    right: 8px;
+    gap: 8px;
+    margin-top: 6px;
   }
 
   .hexzzle-canvas {
-    height: 720px;
-    min-height: 720px;
+    height: 560px;
+    min-height: 560px;
     border-radius: 18px;
   }
 

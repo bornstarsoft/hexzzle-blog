@@ -11,6 +11,10 @@ export function createPiece({ id, name, cells }) {
 }
 
 export function clonePiece(piece) {
+  if (!piece) {
+    return null;
+  }
+
   return createPiece(piece);
 }
 

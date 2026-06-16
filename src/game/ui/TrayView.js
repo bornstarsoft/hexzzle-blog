@@ -26,9 +26,10 @@ export class TrayView {
     const gap = width < 460 ? 8 : 14;
     const totalWidth = Math.min(width - 28, 520);
     const pieceWidth = (totalWidth - gap * 2) / 3;
-    const pieceHeight = width < 460 ? 104 : 118;
+    const pieceHeight = width < 460 ? 88 : 108;
+    const bottomOffset = width < 460 ? 96 : width < 700 ? 86 : width < 900 ? 122 : 62;
     const startX = (width - totalWidth) / 2;
-    const y = height - pieceHeight - 22;
+    const y = height - pieceHeight - bottomOffset;
 
     for (let index = 0; index < 3; index += 1) {
       const x = startX + index * (pieceWidth + gap);
@@ -36,13 +37,16 @@ export class TrayView {
       const selected = index === selectedIndex;
 
       this.hitAreas[index] = { x, y, width: pieceWidth, height: pieceHeight };
-      this.graphics.fillStyle(selected ? 0xdff5ea : 0xffffff, 0.96);
-      this.graphics.lineStyle(selected ? 3 : 1.5, selected ? 0x18756b : 0xd8e4dc, 1);
+      this.graphics.fillStyle(selected && piece ? 0xdff5ea : 0xffffff, piece ? 0.96 : 0.48);
+      this.graphics.lineStyle(selected && piece ? 3 : 1.5, selected && piece ? 0x18756b : 0xd8e4dc, piece ? 1 : 0.7);
       this.graphics.fillRoundedRect(x, y, pieceWidth, pieceHeight, 8);
       this.graphics.strokeRoundedRect(x, y, pieceWidth, pieceHeight, 8);
 
       if (piece) {
-        this.drawPiece(piece, x + pieceWidth / 2, y + pieceHeight / 2, width < 460 ? 17 : 20);
+        this.drawPiece(piece, x + pieceWidth / 2, y + pieceHeight / 2, width < 460 ? 19 : 22);
+      } else {
+        this.graphics.fillStyle(0xd8e4dc, 0.34);
+        this.graphics.fillCircle(x + pieceWidth / 2, y + pieceHeight / 2, 8);
       }
     }
   }

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { BloomResolver } from '../core/BloomResolver.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
+import { findBestPlacementAnchor } from '../core/PlacementResolver.js';
 import { PieceGenerator } from '../core/PieceGenerator.js';
 import { cloneTray } from '../core/PieceModel.js';
 import { ScoreModel } from '../core/ScoreModel.js';
@@ -34,7 +35,7 @@ export class GameScene extends Phaser.Scene {
     this.undoSnapshot = null;
     this.isGameOver = false;
     this.hoverCoord = null;
-    this.statusMessage = 'Choose a Hive Piece, then place it on the Honeycomb Board.';
+    this.statusMessage = 'Tap a piece, then tap the board.';
 
     this.input.on('pointermove', this.handlePointerMove, this);
     this.input.on('pointerdown', this.handlePointerDown, this);
@@ -52,7 +53,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePointerMove(pointer) {
-    if (this.isGameOver || this.tray.length === 0) {
+    if (this.isGameOver || !this.hasTrayPieces()) {
       return;
     }
 
@@ -71,8 +72,9 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const coord = this.boardView.coordFromPointer(pointer);
+    const coord = this.boardView.coordFromPointer(pointer, { tolerance: this.getTouchTolerance() });
     if (!coord) {
+      this.emitStatus('Tap closer to the Honeycomb Board.');
       return;
     }
 
@@ -85,21 +87,26 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.selectedIndex = index;
-    this.emitStatus(`Hive Piece ${index + 1} selected.`);
+    this.emitStatus(`Piece ${index + 1} selected. Tap the board.`);
     this.redraw();
   }
 
-  placeSelectedPiece(anchor) {
+  placeSelectedPiece(preferredAnchor) {
     const piece = this.tray[this.selectedIndex];
 
     if (!piece) {
+      this.emitStatus('Choose a piece first.');
       return;
     }
 
-    if (!this.board.canPlacePiece(piece, anchor)) {
-      this.boardView.showInvalid(anchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
-      this.emitStatus('Not there. Try an open honeycomb space.');
+    const anchor = findBestPlacementAnchor(this.board, piece, preferredAnchor, 2);
+
+    if (!anchor) {
+      this.boardView.showInvalid(preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
+      this.emitStatus('Not there. Try a nearby open cell.');
       this.playTone(180, 0.04);
+      this.hoverCoord = preferredAnchor;
+      this.redraw();
       return;
     }
 
@@ -121,15 +128,15 @@ export class GameScene extends Phaser.Scene {
       this.emitStatus('Nice placement.');
     }
 
-    this.tray.splice(this.selectedIndex, 1);
-    if (this.tray.length === 0) {
+    this.tray[this.selectedIndex] = null;
+    if (!this.hasTrayPieces()) {
       this.tray = this.generator.generateTray({
         score: this.scoreModel.score,
         placements: this.placements
       });
       this.selectedIndex = 0;
     } else {
-      this.selectedIndex = Math.min(this.selectedIndex, this.tray.length - 1);
+      this.selectedIndex = this.findNextPieceIndex(this.selectedIndex);
     }
 
     this.checkGameOver();
@@ -183,7 +190,7 @@ export class GameScene extends Phaser.Scene {
     this.undoSnapshot = null;
     this.isGameOver = false;
     this.hoverCoord = null;
-    this.emitStatus('New game started.');
+    this.emitStatus('New game started. Tap a piece, then tap the board.');
     this.redraw();
     this.emitStats();
   }
@@ -214,17 +221,40 @@ export class GameScene extends Phaser.Scene {
     }
 
     const piece = this.tray[this.selectedIndex] ?? null;
-    const previewValid = piece && this.hoverCoord ? this.board.canPlacePiece(piece, this.hoverCoord) : null;
+    const previewAnchor = piece && this.hoverCoord
+      ? findBestPlacementAnchor(this.board, piece, this.hoverCoord, 2)
+      : null;
+    const previewValid = Boolean(previewAnchor);
     this.boardView.render({
       board: this.board,
       selectedPiece: piece,
-      hoverCoord: this.hoverCoord,
-      previewValid
+      hoverCoord: previewAnchor ?? this.hoverCoord,
+      previewValid,
+      showOpenAnchors: Boolean(piece)
     });
     this.trayView.render({
       tray: this.tray,
       selectedIndex: this.selectedIndex
     });
+  }
+
+  hasTrayPieces() {
+    return this.tray.some(Boolean);
+  }
+
+  findNextPieceIndex(startIndex) {
+    for (let step = 1; step <= this.tray.length; step += 1) {
+      const index = (startIndex + step) % this.tray.length;
+      if (this.tray[index]) {
+        return index;
+      }
+    }
+
+    return 0;
+  }
+
+  getTouchTolerance() {
+    return this.scale.width < 520 ? 1.15 : 0.82;
   }
 
   emitStats() {
