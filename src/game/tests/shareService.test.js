@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createShareText } from '../core/ShareService.js';
+import { CANONICAL_PLAY_URL, createShareText } from '../core/ShareService.js';
 
 test('creates compact classic mode share text with result stats and play URL', () => {
   const text = createShareText({
@@ -21,4 +21,8 @@ test('creates compact classic mode share text with result stats and play URL', (
     '🌸🌸🌸🌸⬡',
     'Play: https://hexzzle.com/play/'
   ].join('\n'));
+});
+
+test('uses the production play URL as the canonical share target', () => {
+  assert.equal(CANONICAL_PLAY_URL, 'https://hexzzle.com/play/');
 });

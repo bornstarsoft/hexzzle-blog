@@ -2,7 +2,8 @@
 title: "Play Hexzzle"
 meta_title: "Play Hexzzle - Color Hive Puzzle Game"
 description: "Play Hexzzle in your browser. Connect matching colors on a honeycomb board and challenge your best score."
-game_shell: true
+layout: "play"
+game_embed: true
 ---
 
 ## How to Play

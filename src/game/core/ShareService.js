@@ -1,3 +1,5 @@
+export const CANONICAL_PLAY_URL = 'https://hexzzle.com/play/';
+
 export function createShareText({
   score,
   totalBlooms,
@@ -17,7 +19,7 @@ export function createShareText({
 }
 
 export async function shareResult(stats, navigatorRef = globalThis.navigator) {
-  const url = stats.url ?? globalThis.location?.href ?? 'https://hexzzle.com/play/';
+  const url = stats.url ?? CANONICAL_PLAY_URL;
   const text = createShareText({ ...stats, url });
   const shareData = {
     title: 'Hexzzle',

@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { ResultPanel } from './ui/ResultPanel.js';
-import { shareResult } from './core/ShareService.js';
+import { CANONICAL_PLAY_URL, shareResult } from './core/ShareService.js';
 
 const container = document.querySelector('#hexzzle-game');
 
@@ -78,7 +78,7 @@ async function startHexzzle(parent) {
       }
 
       try {
-        const url = new URL('/play/', window.location.origin).href;
+        const url = CANONICAL_PLAY_URL;
         const result = await shareResult({ ...lastResult, url });
         shareStatusNode.textContent = result.method === 'clipboard' ? 'Copied!' : 'Shared.';
       } catch (error) {

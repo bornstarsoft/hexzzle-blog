@@ -1,9 +1,24 @@
+.hexzzle-game-embed {
+  width: 100%;
+  margin-top: 16px;
+}
+
 .game-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
   gap: 20px;
   align-items: end;
   margin-bottom: 18px;
+}
+
+.game-hero--compact {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.game-hero--compact .game-scorebar {
+  max-width: 520px;
+  margin-left: auto;
 }
 
 .game-hero__copy h1 {
@@ -63,7 +78,7 @@
   position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 24px;
   background: linear-gradient(180deg, #fff, #f7fbf8);
   box-shadow: var(--shadow);
 }
@@ -104,13 +119,20 @@
 }
 
 .hexzzle-canvas {
+  display: block;
   width: 100%;
-  height: min(72vh, 680px);
-  min-height: 540px;
+  height: clamp(620px, 78vh, 840px);
+  min-height: 620px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #f7fbf8;
 }
 
 .hexzzle-canvas canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .hexzzle-status {
@@ -228,8 +250,8 @@
   }
 
   .hexzzle-canvas {
-    height: 620px;
-    min-height: 520px;
+    height: 720px;
+    min-height: 720px;
   }
 }
 
@@ -248,8 +270,13 @@
   }
 
   .hexzzle-canvas {
-    height: 600px;
-    min-height: 500px;
+    height: 720px;
+    min-height: 720px;
+    border-radius: 18px;
+  }
+
+  .hexzzle-shell {
+    border-radius: 18px;
   }
 
   .result-card dl {

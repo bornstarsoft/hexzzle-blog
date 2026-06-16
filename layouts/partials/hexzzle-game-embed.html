@@ -1,0 +1,54 @@
+{{ $heading := .heading | default "Play Hexzzle" }}
+{{ $description := .description | default "Place colorful pieces on the honeycomb board. Connect 6 or more matching colors to make them bloom." }}
+{{ $showIntro := .showIntro | default false }}
+
+<div class="hexzzle-game-embed" data-hexzzle-embed>
+  {{ if $showIntro }}
+    <section class="game-hero" aria-labelledby="play-title">
+      <div class="game-hero__copy">
+        <p class="eyebrow">Classic mode</p>
+        <h1 id="play-title">{{ $heading }}</h1>
+        <p>{{ $description }}</p>
+      </div>
+      {{ partial "game-scorebar.html" . }}
+    </section>
+  {{ else }}
+    <section class="game-hero game-hero--compact" aria-label="Hexzzle Classic score">
+      {{ partial "game-scorebar.html" . }}
+    </section>
+  {{ end }}
+
+  <section class="hexzzle-shell" data-hexzzle-shell>
+    <div class="hexzzle-toolbar" aria-label="Game controls">
+      <button class="icon-button" type="button" data-hexzzle-restart aria-label="Restart game" title="Restart game">↻</button>
+      <button class="icon-button" type="button" data-hexzzle-undo aria-label="Undo one move" title="Undo one move" disabled>↶</button>
+      <button class="icon-button" type="button" data-hexzzle-sound aria-label="Sound off" title="Sound toggle">♪</button>
+    </div>
+    <div id="hexzzle-game" class="hexzzle-canvas" role="application" aria-label="Hexzzle game board"></div>
+    <p class="hexzzle-status" data-hexzzle-status aria-live="polite">Choose a Hive Piece, then place it on the Honeycomb Board.</p>
+  </section>
+
+  <section class="result-panel" data-hexzzle-result hidden aria-labelledby="result-title">
+    <div class="result-card" data-hexzzle-result-card>
+      <p class="eyebrow">Classic result</p>
+      <h2 id="result-title">Bloom score</h2>
+      <strong data-result-score>0</strong>
+      <div class="result-card__motif" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <dl>
+        <div><dt>Best</dt><dd data-result-best>0</dd></div>
+        <div><dt>Total Blooms</dt><dd data-result-blooms>0</dd></div>
+        <div><dt>Best Chain</dt><dd data-result-chain>x0</dd></div>
+        <div><dt>Best Group</dt><dd data-result-group>0</dd></div>
+      </dl>
+    </div>
+    <div class="result-panel__actions">
+      <button class="button button--primary" type="button" data-hexzzle-play-again>Play again</button>
+      <button class="button button--secondary" type="button" data-hexzzle-share>Share</button>
+    </div>
+    <p class="hexzzle-status" data-hexzzle-share-status aria-live="polite"></p>
+  </section>
+</div>
+
+<script src="/game/hexzzle/hexzzle-game.js" defer></script>

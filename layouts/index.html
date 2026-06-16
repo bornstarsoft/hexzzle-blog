@@ -1,19 +1,17 @@
 {{ define "main" }}
-  <section class="hero">
-    <div class="hero__content">
+  <section class="hero hero--game-first">
+    <div class="hero__content hero__content--game-first">
       <p class="eyebrow">Color Hive Puzzle Online</p>
       <h1>Hexzzle</h1>
       <p class="hero__subtitle">A free color hive puzzle you can play in your browser.</p>
+      <p class="hero__rule">Place colorful pieces. Connect 6 or more matching colors. Make the hive bloom.</p>
       <div class="hero__actions" aria-label="Primary actions">
-        <a class="button button--primary" href="/play/">Play Now</a>
+        <a class="button button--secondary" href="/play/">Open Game Page</a>
         <a class="button button--secondary" href="/guide/">How to Play</a>
       </div>
     </div>
-    <div class="hero__board" aria-hidden="true">
-      {{ range seq 1 19 }}
-        <span></span>
-      {{ end }}
-    </div>
+    {{ partial "hexzzle-game-embed.html" (dict "showIntro" false) }}
+    <p class="home-game-helper">Connect 6 or more matching colors to make them bloom. Scattered colors do not count.</p>
   </section>
 
   <section class="page-section">

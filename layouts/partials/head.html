@@ -8,7 +8,7 @@
 {{ partial "social-meta.html" . }}
 {{ $mainCSS := resources.Get "css/main.css" | minify | fingerprint }}
 <link rel="stylesheet" href="{{ $mainCSS.RelPermalink }}" integrity="{{ $mainCSS.Data.Integrity }}">
-{{ if .Params.game_shell }}
+{{ if or .IsHome .Params.game_embed }}
   <link rel="stylesheet" href="/game/hexzzle/hexzzle-game.css">
 {{ end }}
 <script type="application/ld+json">
@@ -28,7 +28,7 @@
   "url" .Site.BaseURL
 | jsonify | safeJS }}
 </script>
-{{ if or .IsHome .Params.game_shell }}
+{{ if or .IsHome .Params.game_embed }}
 <script type="application/ld+json">
 {{ dict
   "@context" "https://schema.org"

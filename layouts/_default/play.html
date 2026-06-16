@@ -1,0 +1,16 @@
+{{ define "main" }}
+  <article class="page-section page-section--narrow">
+    {{ partial "hexzzle-game-embed.html" (dict
+      "heading" "Play Hexzzle"
+      "description" "Place colorful pieces on the honeycomb board. Connect 6 or more matching colors to make them bloom."
+      "showIntro" true
+    ) }}
+  </article>
+
+  <section class="page-section page-section--narrow game-copy">
+    <div class="prose">
+      {{ .Content }}
+    </div>
+    {{ partial "related-games.html" . }}
+  </section>
+{{ end }}
