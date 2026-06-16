@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 
 import { BloomResolver } from '../core/BloomResolver.js';
+import {
+  createDragGhostState,
+  updateDragGhostCenter
+} from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import { axialToPixel } from '../core/HexCoordinates.js';
 import { resolvePlacementPreview } from '../core/PlacementResolver.js';
@@ -29,6 +33,7 @@ const COLOR_MAP = {
 };
 
 const DRAG_MOVE_THRESHOLD = 8;
+const DRAG_DEBUG_PARAM = 'debugDrag';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -53,6 +58,20 @@ export class GameScene extends Phaser.Scene {
     this.selectionState = createTraySelectionState();
     this.dragState = null;
     this.previewState = null;
+    this.debugDragEnabled = isDragDebugEnabled();
+    this.dragDebugGraphics = this.debugDragEnabled ? this.add.graphics().setDepth(130) : null;
+    this.dragDebugText = this.debugDragEnabled
+      ? this.add.text(12, 12, '', {
+        fontFamily: 'Inter, Arial, sans-serif',
+        fontSize: '13px',
+        color: '#17352e',
+        backgroundColor: 'rgba(255,255,255,0.86)',
+        padding: { x: 8, y: 5 }
+      }).setDepth(131)
+      : null;
+    if (this.debugDragEnabled) {
+      setDragDebugPayload({ last: null, samples: [] });
+    }
     this.placements = 0;
     this.undoSnapshot = null;
     this.isGameOver = false;
@@ -183,19 +202,26 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const trayOrigin = this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y };
+    const tracker = createDragGhostState({
+      pointer,
+      pieceIndex: index,
+      offset: this.getDragOffset()
+    });
     this.dragState = {
       slotIndex: index,
-      pointerId: pointer.id,
+      pointerId: tracker.pointerId,
       piece,
-      trayOrigin,
-      dragOffset: this.getDragOffset(),
+      returnOrigin: this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
+      ghostOffset: tracker.offset,
+      ghostCenter: tracker.ghostCenter,
       ghostSize: this.getGhostPieceSize(),
       ghost: null,
       moved: false,
       returning: false,
       startPoint: { x: pointer.x, y: pointer.y }
     };
+    this.createDragGhost(this.dragState);
+    this.renderDragDebug(pointer, this.dragState.ghostCenter);
     this.previewState = null;
     this.hoverCoord = null;
     this.emitStatus(`Piece ${index + 1} selected.`);
@@ -394,18 +420,22 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    const tracker = updateDragGhostCenter({
+      pointerId: state.pointerId,
+      offset: state.ghostOffset,
+      ghostCenter: state.ghostCenter
+    }, { pointer });
+    state.ghostCenter = tracker.ghostCenter;
+    this.drawDragGhost(state, state.ghostCenter);
+    this.renderDragDebug(pointer, state.ghostCenter);
+
     const distance = Math.hypot(pointer.x - state.startPoint.x, pointer.y - state.startPoint.y);
     if (!state.moved && distance < DRAG_MOVE_THRESHOLD) {
       return;
     }
 
     state.moved = true;
-    state.ghost ??= this.createDragGhost(state);
-
-    const anchorPoint = this.getDragAnchorPoint(pointer, state);
-    this.drawDragGhost(state, anchorPoint);
-
-    const anchor = this.getNearestBoardAnchor(anchorPoint, { tolerance: this.getPreviewTolerance() });
+    const anchor = this.getNearestBoardAnchor(state.ghostCenter, { tolerance: this.getPreviewTolerance() });
     this.previewState = this.resolvePreview(state.piece, anchor);
     this.hoverCoord = this.previewState.previewAnchor;
 
@@ -420,17 +450,10 @@ export class GameScene extends Phaser.Scene {
     this.redraw();
   }
 
-  getDragAnchorPoint(pointer, state) {
-    return {
-      x: pointer.x + state.dragOffset.x,
-      y: pointer.y + state.dragOffset.y
-    };
-  }
-
   getDragOffset() {
     return {
       x: 0,
-      y: this.scale.width < 520 ? -40 : -30
+      y: -32
     };
   }
 
@@ -439,11 +462,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   createDragGhost(state) {
+    if (state.ghost) {
+      return state.ghost;
+    }
+
     const ghost = this.add.graphics();
     ghost.setDepth(100);
     ghost.setAlpha(0.92);
     state.ghost = ghost;
-    this.drawDragGhost(state, state.trayOrigin);
+    this.drawDragGhost(state, state.ghostCenter);
     return ghost;
   }
 
@@ -473,7 +500,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const start = getDragGhostCenter(state);
-    const target = this.trayView.getSlotCenter(state.slotIndex) ?? state.trayOrigin;
+    const target = this.trayView.getSlotCenter(state.slotIndex) ?? state.returnOrigin;
     const tweenTarget = { x: start.x, y: start.y, alpha: 0.92 };
 
     this.tweens.add({
@@ -489,6 +516,7 @@ export class GameScene extends Phaser.Scene {
       },
       onComplete: () => {
         this.destroyDragGhost(state);
+        this.clearDragDebug();
         if (this.dragState === state) {
           this.dragState = null;
         }
@@ -503,6 +531,7 @@ export class GameScene extends Phaser.Scene {
       state.ghost.destroy();
       state.ghost = null;
     }
+    this.clearDragDebug();
   }
 
   clearDragState() {
@@ -516,6 +545,45 @@ export class GameScene extends Phaser.Scene {
 
   lockInputFor(duration) {
     this.inputLockedUntil = Math.max(this.inputLockedUntil, this.time.now + duration);
+  }
+
+  renderDragDebug(pointer, ghostCenter) {
+    if (!this.debugDragEnabled || !this.dragDebugGraphics || !this.dragDebugText || !pointer || !ghostCenter) {
+      return;
+    }
+
+    const dx = ghostCenter.x - pointer.x;
+    const dy = ghostCenter.y - pointer.y;
+    const distance = Math.hypot(dx, dy);
+
+    this.dragDebugGraphics.clear();
+    this.dragDebugGraphics.lineStyle(2, 0x17352e, 0.62);
+    this.dragDebugGraphics.lineBetween(pointer.x, pointer.y, ghostCenter.x, ghostCenter.y);
+    this.dragDebugGraphics.fillStyle(0xef5a5a, 0.95);
+    this.dragDebugGraphics.fillCircle(pointer.x, pointer.y, 5);
+    this.dragDebugGraphics.fillStyle(0x2f80ed, 0.95);
+    this.dragDebugGraphics.fillCircle(ghostCenter.x, ghostCenter.y, 5);
+    this.dragDebugText.setText(`drag dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}`);
+
+    const sample = {
+      pointer: { x: Math.round(pointer.x), y: Math.round(pointer.y) },
+      ghostCenter: { x: Math.round(ghostCenter.x), y: Math.round(ghostCenter.y) },
+      dx: Math.round(dx),
+      dy: Math.round(dy),
+      distance: Math.round(distance)
+    };
+    const existing = getDragDebugPayload().samples ?? [];
+    setDragDebugPayload({
+      last: sample,
+      samples: [...existing.slice(-39), sample]
+    });
+  }
+
+  clearDragDebug() {
+    this.dragDebugGraphics?.clear();
+    if (this.dragDebugText) {
+      this.dragDebugText.setText('');
+    }
   }
 
   emitStats() {
@@ -571,7 +639,31 @@ function createBloomMessage(result) {
 }
 
 function getDragGhostCenter(state) {
-  return state.ghostCenter ?? state.trayOrigin;
+  return state.ghostCenter ?? state.returnOrigin;
+}
+
+function isDragDebugEnabled() {
+  return new URLSearchParams(getDragDebugGlobal().location?.search ?? '').get(DRAG_DEBUG_PARAM) === '1';
+}
+
+function getDragDebugPayload() {
+  return getDragDebugGlobal().__HEXZZLE_DRAG_DEBUG__ ?? { samples: [] };
+}
+
+function setDragDebugPayload(payload) {
+  getDragDebugGlobal().__HEXZZLE_DRAG_DEBUG__ = payload;
+}
+
+function getDragDebugGlobal() {
+  if (typeof window !== 'undefined') {
+    return window;
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    return globalThis;
+  }
+
+  return {};
 }
 
 function drawPieceOnGraphics(graphics, piece, centerX, centerY, size, alpha = 1) {
