@@ -1,99 +1,46 @@
-import { HEX_DIRECTIONS, axialAdd, axialKey } from './HexCoordinates.js';
-
-export function findBestPlacementAnchor(board, piece, preferredAnchor, maxRadius = 2) {
-  if (!piece || !preferredAnchor || !board.hasCoord(preferredAnchor)) {
-    return null;
-  }
-
-  return getCandidateAnchors(preferredAnchor, maxRadius)
-    .filter((coord) => board.hasCoord(coord))
-    .find((coord) => board.canPlacePiece(piece, coord)) ?? null;
+export function resolveLocalPlacementPreview(board, piece, localAnchor) {
+  return createLocalPlacementState(board, piece, localAnchor);
 }
 
-export function resolvePlacementPreview(board, piece, preferredAnchor) {
-  if (!piece || !preferredAnchor || !board.hasCoord(preferredAnchor)) {
-    return createPreviewState({ invalidReason: 'no-anchor' });
+export function resolveLocalPlacementDrop(board, piece, localAnchor) {
+  return createLocalPlacementState(board, piece, localAnchor);
+}
+
+function createLocalPlacementState(board, piece, localAnchor) {
+  if (!piece) {
+    return createPlacementState({ invalidReason: 'no-piece' });
   }
 
-  const targets = getPreviewTargets(board, piece, preferredAnchor);
-  const valid = board.canPlacePiece(piece, preferredAnchor);
+  if (!localAnchor) {
+    return createPlacementState({ invalidReason: 'no-anchor' });
+  }
 
-  return createPreviewState({
+  const targets = getPreviewTargets(board, piece, localAnchor);
+  const valid = board.hasCoord(localAnchor) && board.canPlacePiece(piece, localAnchor);
+
+  return createPlacementState({
     valid,
-    placementAnchor: valid ? preferredAnchor : null,
-    candidateAnchor: preferredAnchor,
-    previewAnchor: preferredAnchor,
-    invalidReason: valid ? null : getInvalidReason(targets),
+    localAnchor,
+    previewAnchor: localAnchor,
+    placementAnchor: valid ? localAnchor : null,
+    invalidReason: valid ? null : getInvalidReason(board, localAnchor, targets),
     targets
   });
 }
 
-export function resolveReleasePlacementAnchor(
-  board,
-  piece,
-  preview,
-  { fallbackAnchor = null, maxRadius = 1 } = {}
-) {
-  if (preview?.valid) {
-    return preview.placementAnchor;
-  }
-
-  if (preview?.invalidReason === 'blocked' || preview?.invalidReason === 'out-of-board') {
-    return null;
-  }
-
-  const localAnchor = preview?.candidateAnchor ?? fallbackAnchor;
-  if (!localAnchor) {
-    return null;
-  }
-
-  return findBestPlacementAnchor(board, piece, localAnchor, maxRadius);
-}
-
-export function getCandidateAnchors(center, maxRadius = 2) {
-  const seen = new Set();
-  const candidates = [];
-  const queue = [{ coord: center, distance: 0 }];
-
-  while (queue.length > 0) {
-    const item = queue.shift();
-    const key = axialKey(item.coord);
-
-    if (seen.has(key) || item.distance > maxRadius) {
-      continue;
-    }
-
-    seen.add(key);
-    candidates.push(item.coord);
-
-    if (item.distance === maxRadius) {
-      continue;
-    }
-
-    HEX_DIRECTIONS.forEach((direction) => {
-      queue.push({
-        coord: axialAdd(item.coord, direction),
-        distance: item.distance + 1
-      });
-    });
-  }
-
-  return candidates;
-}
-
-function createPreviewState({
+function createPlacementState({
   valid = false,
-  placementAnchor = null,
-  candidateAnchor = null,
+  localAnchor = null,
   previewAnchor = null,
+  placementAnchor = null,
   invalidReason = null,
   targets = []
 } = {}) {
   return {
     valid,
-    placementAnchor,
-    candidateAnchor,
+    localAnchor,
     previewAnchor,
+    placementAnchor,
     invalidReason,
     targets
   };
@@ -117,13 +64,13 @@ function getPreviewTargets(board, piece, anchor) {
   });
 }
 
-function getInvalidReason(targets) {
-  if (targets.some((target) => target.blocked)) {
-    return 'blocked';
+function getInvalidReason(board, localAnchor, targets) {
+  if (!board.hasCoord(localAnchor) || targets.some((target) => !target.exists)) {
+    return 'out-of-board';
   }
 
-  if (targets.some((target) => !target.exists)) {
-    return 'out-of-board';
+  if (targets.some((target) => target.blocked)) {
+    return 'occupied';
   }
 
   return 'invalid';

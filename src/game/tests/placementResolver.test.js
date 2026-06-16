@@ -3,66 +3,67 @@ import assert from 'node:assert/strict';
 
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import {
-  findBestPlacementAnchor,
-  resolvePlacementPreview,
-  resolveReleasePlacementAnchor
+  resolveLocalPlacementDrop,
+  resolveLocalPlacementPreview
 } from '../core/PlacementResolver.js';
 
-test('returns the tapped anchor when the selected piece fits there', () => {
+test('valid local anchor previews and drops at the exact local anchor', () => {
   const board = new HexBoardModel(3);
   const piece = {
     cells: [{ dq: 0, dr: 0, color: 'red' }]
   };
 
-  assert.deepEqual(findBestPlacementAnchor(board, piece, { q: 0, r: 0 }), { q: 0, r: 0 });
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 0, r: 0 });
+  const drop = resolveLocalPlacementDrop(board, piece, { q: 0, r: 0 });
+
+  assert.equal(preview.valid, true);
+  assert.deepEqual(preview.localAnchor, { q: 0, r: 0 });
+  assert.deepEqual(preview.previewAnchor, { q: 0, r: 0 });
+  assert.deepEqual(preview.placementAnchor, { q: 0, r: 0 });
+  assert.equal(preview.invalidReason, null);
+  assert.equal(drop.valid, true);
+  assert.deepEqual(drop.placementAnchor, { q: 0, r: 0 });
 });
 
-test('chooses the nearest valid anchor when the tapped anchor is occupied', () => {
+test('blocked local anchor returns invalid preview at the same local anchor', () => {
   const board = new HexBoardModel(3);
   const piece = {
     cells: [{ dq: 0, dr: 0, color: 'red' }]
   };
 
   board.setCell({ q: 0, r: 0 }, 'green');
-  board.setCell({ q: 1, r: 0 }, 'green');
-  board.setCell({ q: 1, r: -1 }, 'green');
-  board.setCell({ q: -1, r: 0 }, 'green');
-  board.setCell({ q: -1, r: 1 }, 'green');
-  board.setCell({ q: 0, r: 1 }, 'green');
-
-  assert.deepEqual(findBestPlacementAnchor(board, piece, { q: 0, r: 0 }), { q: 0, r: -1 });
-});
-
-test('returns null when no nearby anchor can fit the selected piece', () => {
-  const board = new HexBoardModel(3);
-  const piece = {
-    cells: [{ dq: 0, dr: 0, color: 'red' }]
-  };
-
-  board.coordinates.forEach((coord) => board.setCell(coord, 'purple'));
-
-  assert.equal(findBestPlacementAnchor(board, piece, { q: 0, r: 0 }), null);
-});
-
-test('preview stays on the local blocked anchor instead of jumping to a nearby valid anchor', () => {
-  const board = new HexBoardModel(3);
-  const piece = {
-    cells: [{ dq: 0, dr: 0, color: 'red' }]
-  };
-
-  board.setCell({ q: 0, r: 0 }, 'green');
-  const preview = resolvePlacementPreview(board, piece, { q: 0, r: 0 }, 2);
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 0, r: 0 });
+  const drop = resolveLocalPlacementDrop(board, piece, { q: 0, r: 0 });
 
   assert.equal(preview.valid, false);
-  assert.equal(preview.placementAnchor, null);
+  assert.deepEqual(preview.localAnchor, { q: 0, r: 0 });
   assert.deepEqual(preview.previewAnchor, { q: 0, r: 0 });
-  assert.deepEqual(preview.candidateAnchor, { q: 0, r: 0 });
-  assert.equal(preview.invalidReason, 'blocked');
+  assert.equal(preview.placementAnchor, null);
+  assert.equal(preview.invalidReason, 'occupied');
   assert.equal(preview.targets.some((target) => target.blocked), true);
-  assert.deepEqual(findBestPlacementAnchor(board, piece, { q: 0, r: 0 }, 2), { q: 1, r: 0 });
+  assert.equal(drop.valid, false);
+  assert.equal(drop.placementAnchor, null);
+  assert.equal(drop.invalidReason, 'occupied');
 });
 
-test('returns red invalid preview state when no candidate can place the piece', () => {
+test('preview anchor never changes to a nearby valid anchor', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [{ dq: 0, dr: 0, color: 'red' }]
+  };
+
+  board.setCell({ q: 0, r: 0 }, 'green');
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 0, r: 0 });
+  const drop = resolveLocalPlacementDrop(board, piece, { q: 0, r: 0 });
+
+  assert.equal(board.canPlacePiece(piece, { q: 1, r: 0 }), true);
+  assert.deepEqual(preview.previewAnchor, { q: 0, r: 0 });
+  assert.notDeepEqual(preview.previewAnchor, { q: 1, r: 0 });
+  assert.equal(drop.valid, false);
+  assert.equal(drop.placementAnchor, null);
+});
+
+test('out-of-board local anchor shows red invalid targets without moving anchors', () => {
   const board = new HexBoardModel(3);
   const piece = {
     cells: [
@@ -72,42 +73,26 @@ test('returns red invalid preview state when no candidate can place the piece', 
     ]
   };
 
-  board.coordinates.forEach((coord) => board.setCell(coord, 'purple'));
-  const preview = resolvePlacementPreview(board, piece, { q: 2, r: 0 }, 2);
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 2, r: 0 });
+  const drop = resolveLocalPlacementDrop(board, piece, { q: 2, r: 0 });
 
   assert.equal(preview.valid, false);
-  assert.equal(preview.placementAnchor, null);
   assert.deepEqual(preview.previewAnchor, { q: 2, r: 0 });
-  assert.equal(preview.targets.some((target) => target.blocked || !target.exists), true);
+  assert.equal(preview.invalidReason, 'out-of-board');
+  assert.equal(preview.targets.some((target) => !target.exists), true);
+  assert.equal(drop.valid, false);
+  assert.equal(drop.placementAnchor, null);
+  assert.equal(drop.invalidReason, 'out-of-board');
 });
 
-test('release placement refuses blocked local preview instead of using fallback', () => {
+test('missing piece or anchor never places', () => {
   const board = new HexBoardModel(3);
   const piece = {
     cells: [{ dq: 0, dr: 0, color: 'red' }]
   };
 
-  board.setCell({ q: 0, r: 0 }, 'green');
-  const preview = resolvePlacementPreview(board, piece, { q: 0, r: 0 });
-
-  assert.equal(preview.invalidReason, 'blocked');
-  assert.equal(resolveReleasePlacementAnchor(board, piece, preview, {
-    fallbackAnchor: { q: 1, r: 0 },
-    maxRadius: 1
-  }), null);
-});
-
-test('release fallback may find a nearby valid anchor without changing preview rendering', () => {
-  const board = new HexBoardModel(3);
-  const piece = {
-    cells: [{ dq: 0, dr: 0, color: 'red' }]
-  };
-  const preview = resolvePlacementPreview(board, piece, null);
-
-  assert.equal(preview.previewAnchor, null);
-  assert.equal(preview.invalidReason, 'no-anchor');
-  assert.deepEqual(resolveReleasePlacementAnchor(board, piece, preview, {
-    fallbackAnchor: { q: 0, r: 0 },
-    maxRadius: 1
-  }), { q: 0, r: 0 });
+  assert.equal(resolveLocalPlacementPreview(board, null, { q: 0, r: 0 }).invalidReason, 'no-piece');
+  assert.equal(resolveLocalPlacementDrop(board, null, { q: 0, r: 0 }).valid, false);
+  assert.equal(resolveLocalPlacementPreview(board, piece, null).invalidReason, 'no-anchor');
+  assert.equal(resolveLocalPlacementDrop(board, piece, null).valid, false);
 });
