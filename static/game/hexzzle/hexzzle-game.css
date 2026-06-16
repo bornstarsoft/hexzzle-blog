@@ -72,6 +72,11 @@
   border-radius: 24px;
   background: linear-gradient(180deg, #fff, #f7fbf8);
   box-shadow: var(--shadow);
+  overscroll-behavior: contain;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .hexzzle-toolbar {
@@ -120,12 +125,21 @@
   overflow: hidden;
   border-radius: 24px;
   background: #f7fbf8;
+  cursor: grab;
+  overscroll-behavior: contain;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .hexzzle-canvas canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .hexzzle-status {

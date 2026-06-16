@@ -80,4 +80,16 @@ export class TrayView {
 
     return index === -1 ? null : index;
   }
+
+  getSlotCenter(index) {
+    const area = this.hitAreas[index];
+    if (!area) {
+      return null;
+    }
+
+    return {
+      x: area.x + area.width / 2,
+      y: area.y + area.height / 2
+    };
+  }
 }
