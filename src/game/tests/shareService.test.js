@@ -17,7 +17,7 @@ test('creates compact classic mode share text with result stats and play URL', (
     'Score: 8,420',
     'Blooms: 12',
     'Best Chain: x3',
-    'Best Group: 9',
+    'Best Stack: 9',
     '🌸🌸🌸🌸⬡',
     'Play: https://hexzzle.com/play/'
   ].join('\n'));

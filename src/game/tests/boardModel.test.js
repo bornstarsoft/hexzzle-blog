@@ -14,10 +14,20 @@ test('places a piece only when every target cell exists and is empty', () => {
 
   assert.equal(board.canPlacePiece(piece, { q: 0, r: 0 }), true);
   board.placePiece(piece, { q: 0, r: 0 });
-  assert.equal(board.getCell({ q: 0, r: 0 }), 'red');
-  assert.equal(board.getCell({ q: 1, r: 0 }), 'blue');
+  assert.deepEqual(board.getCell({ q: 0, r: 0 }), { color: 'red', count: 1 });
+  assert.deepEqual(board.getCell({ q: 1, r: 0 }), { color: 'blue', count: 1 });
   assert.equal(board.canPlacePiece(piece, { q: 0, r: 0 }), false);
   assert.equal(board.canPlacePiece(piece, { q: 3, r: 0 }), false);
+});
+
+test('board cell stores color and count', () => {
+  const board = new HexBoardModel(3);
+
+  board.setCell({ q: 0, r: 0 }, { color: 'green', count: 4 });
+
+  assert.deepEqual(board.getCell({ q: 0, r: 0 }), { color: 'green', count: 4 });
+  assert.equal(board.getCellColor({ q: 0, r: 0 }), 'green');
+  assert.equal(board.getCellCount({ q: 0, r: 0 }), 4);
 });
 
 test('detects whether any tray piece can fit on the board', () => {
@@ -40,13 +50,13 @@ test('counts empty cells for board-pressure generation', () => {
   assert.equal(board.getEmptyCellCount(), 35);
 });
 
-test('snapshot and restore include occupied cells', () => {
+test('snapshot and restore include occupied stack counts', () => {
   const board = new HexBoardModel(3);
-  board.setCell({ q: 0, r: 0 }, 'orange');
+  board.setCell({ q: 0, r: 0 }, { color: 'orange', count: 5 });
   const snapshot = board.snapshot();
 
   board.setCell({ q: 0, r: 0 }, 'green');
   board.restore(snapshot);
 
-  assert.equal(board.getCell({ q: 0, r: 0 }), 'orange');
+  assert.deepEqual(board.getCell({ q: 0, r: 0 }), { color: 'orange', count: 5 });
 });

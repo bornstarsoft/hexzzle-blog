@@ -1,3 +1,5 @@
+import { getBloomStackPlans } from './BloomStackResolver.js';
+
 export function resolveLocalPlacementPreview(board, piece, localAnchor) {
   return createLocalPlacementState(board, piece, localAnchor);
 }
@@ -17,6 +19,12 @@ function createLocalPlacementState(board, piece, localAnchor) {
 
   const targets = getPreviewTargets(board, piece, localAnchor);
   const valid = board.hasCoord(localAnchor) && board.canPlacePiece(piece, localAnchor);
+  const stackHints = valid
+    ? getBloomStackPlans(board, {
+      placedCells: targets,
+      anchor: localAnchor
+    }).filter((plan) => plan.totalCount > 1)
+    : [];
 
   return createPlacementState({
     valid,
@@ -24,7 +32,8 @@ function createLocalPlacementState(board, piece, localAnchor) {
     previewAnchor: localAnchor,
     placementAnchor: valid ? localAnchor : null,
     invalidReason: valid ? null : getInvalidReason(board, localAnchor, targets),
-    targets
+    targets,
+    stackHints
   });
 }
 
@@ -34,7 +43,8 @@ function createPlacementState({
   previewAnchor = null,
   placementAnchor = null,
   invalidReason = null,
-  targets = []
+  targets = [],
+  stackHints = []
 } = {}) {
   return {
     valid,
@@ -42,7 +52,8 @@ function createPlacementState({
     previewAnchor,
     placementAnchor,
     invalidReason,
-    targets
+    targets,
+    stackHints
   };
 }
 

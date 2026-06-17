@@ -16,12 +16,20 @@ export class HexBoardModel {
     return this.cells.get(axialKey(coord)) ?? null;
   }
 
-  setCell(coord, color) {
+  getCellColor(coord) {
+    return this.getCell(coord)?.color ?? null;
+  }
+
+  getCellCount(coord) {
+    return this.getCell(coord)?.count ?? 0;
+  }
+
+  setCell(coord, value) {
     const key = axialKey(coord);
     if (!this.cells.has(key)) {
       throw new Error(`Invalid board coordinate: ${key}`);
     }
-    this.cells.set(key, color);
+    this.cells.set(key, normalizeCellValue(value));
   }
 
   clearCell(coord) {
@@ -52,7 +60,7 @@ export class HexBoardModel {
     }
 
     this.getTargets(piece, anchor).forEach((target) => {
-      this.setCell(target, target.color);
+      this.setCell(target, { color: target.color, count: 1 });
     });
 
     return true;
@@ -92,7 +100,23 @@ export class HexBoardModel {
   toJSON() {
     return this.coordinates.map((coord) => ({
       ...coord,
-      color: this.getCell(coord)
+      color: this.getCellColor(coord),
+      count: this.getCellCount(coord)
     }));
   }
+}
+
+function normalizeCellValue(value) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return { color: value, count: 1 };
+  }
+
+  return {
+    color: value.color,
+    count: Math.max(1, Number(value.count) || 1)
+  };
 }

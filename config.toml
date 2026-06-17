@@ -10,7 +10,7 @@ buildFuture = false
   pagerSize = 12
 
 [params]
-  description = "Play Hexzzle, a free honeycomb color puzzle online. Place colorful pieces, connect 6 or more matching colors, and make them bloom."
+  description = "Play Hexzzle, a free honeycomb color puzzle online. Place colorful pieces, stack matching colors, reach 6, and make the hive bloom."
   mainSections = []
   ogImage = "/images/hexzzle-og.svg"
 

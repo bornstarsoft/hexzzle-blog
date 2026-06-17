@@ -1,8 +1,10 @@
 {
   "score": {
     "placeCell": 1,
-    "bloomBase": 100,
-    "extraCellBonus": 25,
+    "mergeBase": 10,
+    "stackProgressBonus": 5,
+    "bloomBase": 120,
+    "extraStackBonus": 30,
     "multiBloomBonus": 75,
     "chainMultiplierStep": 0.5,
     "maxChainMultiplier": 2

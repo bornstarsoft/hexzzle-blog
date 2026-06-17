@@ -6,10 +6,15 @@
 - [ ] Can place pieces.
 - [ ] Cannot place outside the honeycomb board.
 - [ ] Cannot place on occupied cells.
-- [ ] Connected same-color group of 6 clears.
-- [ ] Scattered same-color cells totaling 6 do not clear.
-- [ ] Group larger than 6 clears.
-- [ ] Multiple bloom groups can clear.
+- [ ] Same-color adjacent cells merge into one Bloom Stack.
+- [ ] Stack count displays clearly for counts 2 to 5.
+- [ ] Stack count 6 blooms and clears.
+- [ ] Disconnected same-color stacks do not merge.
+- [ ] Stack larger than 6 blooms and gives extra score.
+- [ ] Multiple affected colors can resolve from one placement.
+- [ ] Tray duplicate badges show x2/x3 only when relevant.
+- [ ] Valid preview shows stack hints such as 5/6 or Bloom!
+- [ ] Invalid preview does not show stack hints.
 - [ ] Score updates.
 - [ ] Best score persists.
 - [ ] Game over triggers correctly.

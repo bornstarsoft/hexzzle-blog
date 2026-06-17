@@ -31,14 +31,16 @@ export class HoneycombBoardView {
     };
   }
 
-  render({ board, selectedPiece, hoverCoord, previewValid, previewTargets = [], showOpenAnchors }) {
+  render({ board, selectedPiece, hoverCoord, previewValid, previewTargets = [], previewStackHints = [], showOpenAnchors }) {
     this.board = board;
     this.updateLayout();
     this.graphics.clear();
     this.overlay.clear();
+    this.textGroup.clear(true, true);
 
     board.coordinates.forEach((coord) => {
-      const color = board.getCell(coord);
+      const cell = board.getCell(coord);
+      const color = cell?.color;
       const point = this.toScreen(coord);
       drawHex(this.graphics, point.x, point.y, this.layout.hexSize, {
         fill: color ? COLOR_MAP[color] : 0xffffff,
@@ -46,6 +48,10 @@ export class HoneycombBoardView {
         line: color ? 0xffffff : 0xd8e4dc,
         lineAlpha: color ? 0.85 : 1
       });
+
+      if (cell?.count > 1) {
+        this.drawStackCount(point, cell.count);
+      }
     });
 
     if (selectedPiece && showOpenAnchors) {
@@ -54,6 +60,9 @@ export class HoneycombBoardView {
 
     if (selectedPiece && hoverCoord) {
       this.drawPreview(selectedPiece, hoverCoord, previewValid, previewTargets);
+      if (previewValid) {
+        this.drawStackHints(previewStackHints);
+      }
     }
   }
 
@@ -186,6 +195,47 @@ export class HoneycombBoardView {
     });
   }
 
+  showMerge(result) {
+    result.merges.forEach((merge) => {
+      const point = this.toScreen(merge.target);
+      const pulse = this.scene.add.container(point.x, point.y).setDepth(63);
+      const hex = this.scene.add.graphics();
+      drawHex(hex, 0, 0, this.layout.hexSize * 1.04, {
+        fill: COLOR_MAP[merge.color] ?? 0xf2c94c,
+        alpha: 0.24,
+        line: 0xffffff,
+        lineAlpha: 0.95
+      });
+      pulse.add(hex);
+      const label = this.scene.add.text(point.x, point.y - this.layout.hexSize * 1.05, `${merge.totalCount}/6`, {
+        fontFamily: 'Inter, Arial, sans-serif',
+        fontSize: `${Math.round(Math.max(16, this.layout.hexSize * 0.56))}px`,
+        fontStyle: '800',
+        color: '#17352e',
+        backgroundColor: 'rgba(255,255,255,0.86)',
+        padding: { x: 7, y: 3 }
+      }).setOrigin(0.5).setDepth(76);
+
+      this.scene.tweens.add({
+        targets: pulse,
+        alpha: 0,
+        scaleX: 1.18,
+        scaleY: 1.18,
+        duration: this.scene.configData.gameFeel?.mergeAnimationMs ?? 240,
+        ease: 'Sine.easeOut',
+        onComplete: () => pulse.destroy()
+      });
+      this.scene.tweens.add({
+        targets: label,
+        y: label.y - 18,
+        alpha: 0,
+        duration: 420,
+        ease: 'Sine.easeOut',
+        onComplete: () => label.destroy()
+      });
+    });
+  }
+
   showBloom(result) {
     const cells = result.scans.flatMap((scan) => scan.flatMap((group) => (
       group.cells.map((coord) => ({ ...coord, color: group.color }))
@@ -276,6 +326,35 @@ export class HoneycombBoardView {
       duration: 620,
       ease: 'Sine.easeOut',
       onComplete: () => text.destroy()
+    });
+  }
+
+  drawStackCount(point, count) {
+    const text = this.scene.add.text(point.x, point.y, String(count), {
+      fontFamily: 'Inter, Arial, sans-serif',
+      fontSize: `${Math.round(Math.max(14, this.layout.hexSize * 0.58))}px`,
+      fontStyle: '800',
+      color: '#17352e',
+      stroke: '#ffffff',
+      strokeThickness: Math.max(2, Math.round(this.layout.hexSize * 0.08))
+    }).setOrigin(0.5).setDepth(34);
+
+    this.textGroup.add(text);
+  }
+
+  drawStackHints(hints) {
+    hints.forEach((hint) => {
+      const point = this.toScreen(hint.target);
+      const label = this.scene.add.text(point.x, point.y - this.layout.hexSize * 1.08, hint.hint, {
+        fontFamily: 'Inter, Arial, sans-serif',
+        fontSize: `${Math.round(Math.max(13, this.layout.hexSize * 0.46))}px`,
+        fontStyle: '800',
+        color: hint.action === 'bloom' ? '#0f5b55' : '#17352e',
+        backgroundColor: 'rgba(255,255,255,0.88)',
+        padding: { x: 6, y: 3 }
+      }).setOrigin(0.5).setDepth(56);
+
+      this.textGroup.add(label);
     });
   }
 }

@@ -12,7 +12,7 @@ export function createShareText({
     `Score: ${formatNumber(score)}`,
     `Blooms: ${totalBlooms}`,
     `Best Chain: x${bestChain}`,
-    `Best Group: ${longestGroup}`,
+    `Best Stack: ${longestGroup}`,
     '🌸🌸🌸🌸⬡',
     `Play: ${url}`
   ].join('\n');

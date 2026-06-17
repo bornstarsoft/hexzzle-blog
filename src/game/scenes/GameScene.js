@@ -92,7 +92,7 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.inputLockedUntil = 0;
     this.hoverCoord = null;
-    this.statusMessage = 'Tap a piece, then tap the board.';
+    this.statusMessage = 'Tap a piece, then stack matching colors.';
 
     this.input.on('pointermove', this.handlePointerMove, this);
     this.input.on('pointerdown', this.handlePointerDown, this);
@@ -176,7 +176,7 @@ export class GameScene extends Phaser.Scene {
       this.dragState = null;
       this.previewState = null;
       this.hoverCoord = null;
-      this.emitStatus(`Piece ${state.slotIndex + 1} selected. Tap the board.`);
+      this.emitStatus(`Piece ${state.slotIndex + 1} selected. Stack matching colors.`);
       this.redraw();
       return;
     }
@@ -213,7 +213,7 @@ export class GameScene extends Phaser.Scene {
     this.selectionState = nextState;
     this.previewState = null;
     this.hoverCoord = null;
-    this.emitStatus(`Piece ${index + 1} selected. Tap the board.`);
+    this.emitStatus(`Piece ${index + 1} selected. Stack matching colors.`);
     this.redraw();
   }
 
@@ -285,23 +285,30 @@ export class GameScene extends Phaser.Scene {
 
     this.undoSnapshot = this.createUndoSnapshot();
     const anchor = preview.placementAnchor;
+    const placedTargets = this.board.getTargets(piece, anchor).map((target) => ({ ...target }));
     this.board.placePiece(piece, anchor);
     this.placements += 1;
     const placePoints = this.scoreModel.addPlacement(piece.cells.length);
+    const bloomResult = this.resolver.resolve(this.board, {
+      placedCells: placedTargets,
+      anchor
+    });
+    const stackPoints = this.scoreModel.addBloomResult(bloomResult);
     this.redraw();
-    this.boardView.showScorePop(anchor, `+${placePoints}`);
+    this.boardView.showScorePop(anchor, `+${placePoints + stackPoints}`);
     this.playTone(440, 0.05);
 
-    const bloomResult = this.resolver.resolve(this.board);
-    if (bloomResult.totalCleared > 0) {
-      const bloomPoints = this.scoreModel.addBloomResult(bloomResult);
+    if (bloomResult.groupsCleared > 0) {
       this.boardView.showBloom(bloomResult);
-      this.boardView.showScorePop(anchor, `+${bloomPoints}`);
       this.lockInputFor(this.configData.gameFeel?.bloomAnimationMs ?? 480);
       this.playTone(660, 0.08);
       this.emitStatus(createBloomMessage(bloomResult));
+    } else if (bloomResult.merges.length > 0) {
+      this.boardView.showMerge(bloomResult);
+      this.lockInputFor(this.configData.gameFeel?.mergeAnimationMs ?? 240);
+      this.emitStatus(createMergeMessage(bloomResult));
     } else {
-      this.emitStatus('Nice placement.');
+      this.emitStatus('Stack started.');
     }
 
     const used = useActiveTrayPiece({
@@ -388,7 +395,7 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.inputLockedUntil = 0;
     this.hoverCoord = null;
-    this.emitStatus('New game started. Tap a piece, then tap the board.');
+    this.emitStatus('New game started. Stack matching colors. Reach 6.');
     this.redraw();
     this.emitStats();
   }
@@ -429,6 +436,7 @@ export class GameScene extends Phaser.Scene {
       hoverCoord: preview?.previewAnchor ?? this.hoverCoord,
       previewValid: Boolean(preview?.valid),
       previewTargets: preview?.targets ?? [],
+      previewStackHints: preview?.valid ? preview.stackHints ?? [] : [],
       showOpenAnchors: shouldShowOpenAnchorHints({
         selectedPiece: piece,
         isDragging: Boolean(this.dragState),
@@ -828,6 +836,14 @@ function createBloomMessage(result) {
   }
 
   return 'Bloom!';
+}
+
+function createMergeMessage(result) {
+  const bestMerge = result.merges.reduce((best, merge) => (
+    !best || merge.totalCount > best.totalCount ? merge : best
+  ), null);
+
+  return bestMerge ? `Bloom Stack ${bestMerge.totalCount}/6` : 'Stack matching colors.';
 }
 
 function getDragGhostCenter(state) {

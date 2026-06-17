@@ -6,6 +6,7 @@ import {
   getCenteredPieceAnchorPoint,
   getPieceCellCentersForCenteredPiece
 } from '../core/PieceVisualGeometry.js';
+import { getPieceDuplicateBadges } from '../core/BloomStackResolver.js';
 import { drawHex } from './HoneycombBoardView.js';
 
 const COLOR_MAP = {
@@ -24,10 +25,12 @@ export class TrayView {
     this.hitAreas = [];
     this.slotCenters = [];
     this.lastPieceSize = 0;
+    this.badgeGroup = scene.add.group();
   }
 
   render({ tray, selectedIndex }) {
     this.graphics.clear();
+    this.badgeGroup.clear(true, true);
     this.hitAreas = [];
 
     const width = this.scene.scale.width;
@@ -51,6 +54,7 @@ export class TrayView {
 
       if (piece) {
         this.drawPiece(piece, this.slotCenters[index].x, this.slotCenters[index].y, pieceSize);
+        this.drawBadges(piece, x, layout.y, layout.pieceWidth);
       } else {
         this.graphics.fillStyle(0xd8e4dc, 0.34);
         this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 8);
@@ -66,6 +70,26 @@ export class TrayView {
         line: 0xffffff,
         lineAlpha: 0.9
       });
+    });
+  }
+
+  drawBadges(piece, slotX, slotY, slotWidth) {
+    getPieceDuplicateBadges(piece).forEach((badge, index) => {
+      const text = this.scene.add.text(
+        slotX + slotWidth - 12,
+        slotY + 11 + index * 22,
+        badge.label,
+        {
+          fontFamily: 'Inter, Arial, sans-serif',
+          fontSize: '13px',
+          fontStyle: '800',
+          color: '#17352e',
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          padding: { x: 6, y: 3 }
+        }
+      ).setOrigin(1, 0).setDepth(12);
+
+      this.badgeGroup.add(text);
     });
   }
 

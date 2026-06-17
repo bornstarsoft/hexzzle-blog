@@ -85,6 +85,50 @@ test('out-of-board local anchor shows red invalid targets without moving anchors
   assert.equal(drop.invalidReason, 'out-of-board');
 });
 
+test('valid preview shows stack result hint', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [{ dq: 0, dr: 0, color: 'blue' }]
+  };
+
+  board.setCell({ q: 0, r: 0 }, { color: 'blue', count: 4 });
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 1, r: 0 });
+
+  assert.equal(preview.valid, true);
+  assert.equal(preview.stackHints.length, 1);
+  assert.equal(preview.stackHints[0].hint, '5/6');
+  assert.deepEqual(preview.stackHints[0].target, { q: 1, r: 0 });
+});
+
+test('valid preview shows Bloom hint when stack reaches 6', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'green' },
+      { dq: 1, dr: 0, color: 'green' }
+    ]
+  };
+
+  board.setCell({ q: 0, r: 0 }, { color: 'green', count: 4 });
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 1, r: 0 });
+
+  assert.equal(preview.valid, true);
+  assert.equal(preview.stackHints[0].hint, 'Bloom!');
+});
+
+test('invalid preview does not show stack result hint', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [{ dq: 0, dr: 0, color: 'red' }]
+  };
+
+  board.setCell({ q: 0, r: 0 }, { color: 'red', count: 4 });
+  const preview = resolveLocalPlacementPreview(board, piece, { q: 0, r: 0 });
+
+  assert.equal(preview.valid, false);
+  assert.deepEqual(preview.stackHints, []);
+});
+
 test('missing piece or anchor never places', () => {
   const board = new HexBoardModel(3);
   const piece = {
