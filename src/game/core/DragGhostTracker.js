@@ -1,4 +1,7 @@
-import { axialToPixel } from './HexCoordinates.js';
+import {
+  getPieceCellCentersForAnchor,
+  getPiecePixelOffsetsFromAnchor
+} from './PieceVisualGeometry.js';
 
 export const DEFAULT_DRAG_GHOST_OFFSET = { x: 0, y: -32 };
 
@@ -14,11 +17,12 @@ export function createDragGhostState({
   const ghostPosition = getGhostCenterFromPointer(pointer, offset);
   const cellLocalOffsets = getPieceCellLocalOffsets(piece, boardCellSize);
   const anchorLocalOffset = getPieceAnchorLocalOffset(piece, boardCellSize, anchorCellIndex);
-  const ghostAnchorPoint = getGhostAnchorPoint(ghostPosition, anchorLocalOffset);
+  const ghostAnchorPoint = { ...ghostPosition };
 
   return {
     pointerId: pointer?.id,
     pieceIndex,
+    piece,
     boardCellSize,
     anchorCellIndex,
     cellLocalOffsets,
@@ -28,7 +32,8 @@ export function createDragGhostState({
     offset: { ...offset },
     ghostPosition,
     ghostCenter: ghostPosition,
-    ghostAnchorPoint
+    ghostAnchorPoint,
+    cellCenters: getPieceCellCentersForAnchor(ghostAnchorPoint, piece, boardCellSize)
   };
 }
 
@@ -41,7 +46,7 @@ export function updateDragGhostCenter(state, { pointer }) {
   const offset = state.pointerOffset ?? state.offset;
   const ghostPosition = getGhostCenterFromPointer(pointer, offset);
   const anchorLocalOffset = state.anchorLocalOffset ?? { x: 0, y: 0 };
-  const ghostAnchorPoint = getGhostAnchorPoint(ghostPosition, anchorLocalOffset);
+  const ghostAnchorPoint = { ...ghostPosition };
 
   return {
     ...state,
@@ -49,7 +54,8 @@ export function updateDragGhostCenter(state, { pointer }) {
     pointerOffset: { ...offset },
     ghostPosition,
     ghostCenter: ghostPosition,
-    ghostAnchorPoint
+    ghostAnchorPoint,
+    cellCenters: getPieceCellCentersForAnchor(ghostAnchorPoint, state.piece, state.boardCellSize)
   };
 }
 
@@ -72,24 +78,15 @@ export function getPieceAnchorLocalOffset(piece, boardCellSize, anchorCellIndex 
 }
 
 export function getPieceCellLocalOffsets(piece, boardCellSize) {
-  if (!piece?.cells?.length || !Number.isFinite(boardCellSize) || boardCellSize <= 0) {
-    return [];
-  }
+  return getPiecePixelOffsetsFromAnchor(piece, boardCellSize);
+}
 
-  const points = piece.cells.map((cell) => axialToPixel({ q: cell.dq, r: cell.dr }, boardCellSize));
-  const minX = Math.min(...points.map((point) => point.x));
-  const maxX = Math.max(...points.map((point) => point.x));
-  const minY = Math.min(...points.map((point) => point.y));
-  const maxY = Math.max(...points.map((point) => point.y));
-  const offsetX = -(minX + maxX) / 2;
-  const offsetY = -(minY + maxY) / 2;
-
-  return piece.cells.map((cell, index) => ({
-    dq: cell.dq,
-    dr: cell.dr,
-    x: points[index].x + offsetX,
-    y: points[index].y + offsetY
-  }));
+export function getDragGhostCellCenters(state) {
+  return state?.cellCenters ?? getPieceCellCentersForAnchor(
+    state?.ghostAnchorPoint ?? state?.ghostPosition ?? { x: 0, y: 0 },
+    state?.piece,
+    state?.boardCellSize
+  );
 }
 
 function getPointerPoint(pointer) {

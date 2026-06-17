@@ -3,12 +3,17 @@ import Phaser from 'phaser';
 import { BloomResolver } from '../core/BloomResolver.js';
 import {
   createDragGhostState,
+  getDragGhostCellCenters,
   getGhostAnchorPoint,
   updateDragGhostCenter
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
-import { axialToPixel } from '../core/HexCoordinates.js';
 import { getGhostHexSize, shouldShowOpenAnchorHints } from '../core/HexVisualLayout.js';
+import {
+  getMaxCellCenterDelta,
+  getPieceCellCentersForAnchor,
+  getPiecePixelOffsetsFromAnchor
+} from '../core/PieceVisualGeometry.js';
 import {
   resolveLocalPlacementDrop,
   resolveLocalPlacementPreview
@@ -221,11 +226,12 @@ export class GameScene extends Phaser.Scene {
       slotIndex: index,
       pointerId: tracker.pointerId,
       piece,
-      returnOrigin: this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
+      returnOrigin: this.trayView.getPieceAnchorPoint(index, piece) ?? this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
       pointerPoint: tracker.pointerPoint,
       pointerOffset: tracker.pointerOffset,
       anchorLocalOffset: tracker.anchorLocalOffset,
       ghostAnchorPoint: tracker.ghostAnchorPoint,
+      cellCenters: tracker.cellCenters,
       ghostPosition: tracker.ghostPosition,
       ghostCenter: tracker.ghostPosition,
       ghostSize: tracker.boardCellSize,
@@ -448,6 +454,7 @@ export class GameScene extends Phaser.Scene {
     state.ghostPosition = tracker.ghostPosition;
     state.ghostCenter = tracker.ghostPosition;
     state.ghostAnchorPoint = tracker.ghostAnchorPoint;
+    state.cellCenters = tracker.cellCenters;
     this.drawDragGhost(state, state.ghostPosition);
 
     const distance = Math.hypot(pointer.x - state.startPoint.x, pointer.y - state.startPoint.y);
@@ -507,8 +514,9 @@ export class GameScene extends Phaser.Scene {
     state.ghostPosition = { x: center.x, y: center.y };
     state.ghostCenter = state.ghostPosition;
     state.ghostAnchorPoint = getGhostAnchorPoint(state.ghostPosition, state.anchorLocalOffset);
+    state.cellCenters = getPieceCellCentersForAnchor(state.ghostAnchorPoint, state.piece, state.ghostSize);
     state.ghost.clear();
-    drawPieceOnGraphics(state.ghost, state.piece, center.x, center.y, state.ghostSize, 0.9);
+    drawPieceOnGraphics(state.ghost, state.piece, state.ghostAnchorPoint.x, state.ghostAnchorPoint.y, state.ghostSize, 0.9);
   }
 
   animateGhostBackToTray(state) {
@@ -527,7 +535,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const start = getDragGhostCenter(state);
-    const target = this.trayView.getSlotCenter(state.slotIndex) ?? state.returnOrigin;
+    const target = this.trayView.getPieceAnchorPoint(state.slotIndex, state.piece) ?? state.returnOrigin;
     const tweenTarget = { x: start.x, y: start.y, alpha: 0.92 };
 
     this.tweens.add({
@@ -654,6 +662,43 @@ export class GameScene extends Phaser.Scene {
       this.dragDebugGraphics.fillStyle(preview.valid ? 0x18756b : 0xef5a5a, 0.95);
       this.dragDebugGraphics.fillCircle(previewPoint.x, previewPoint.y, 4);
     }
+    const ghostCellCenters = dragState ? getDragGhostCellCenters(dragState) : [];
+    const previewCellCenters = preview?.previewAnchor && dragState?.piece
+      ? getPieceCellCentersForAnchor(this.boardView.toScreen(preview.previewAnchor), dragState.piece, this.boardView.layout.hexSize)
+      : [];
+    ghostCellCenters.forEach((center) => {
+      this.dragDebugGraphics.fillStyle(0x2f80ed, 0.82);
+      this.dragDebugGraphics.fillCircle(center.x, center.y, 3);
+    });
+    previewCellCenters.forEach((center) => {
+      this.dragDebugGraphics.fillStyle(preview?.valid ? 0x18756b : 0xef5a5a, 0.82);
+      this.dragDebugGraphics.fillCircle(center.x, center.y, 2);
+    });
+    const previewAnchorPoint = preview?.previewAnchor ? this.boardView.toScreen(preview.previewAnchor) : null;
+    const anchorDelta = previewAnchorPoint && dragState?.ghostAnchorPoint
+      ? {
+        x: previewAnchorPoint.x - dragState.ghostAnchorPoint.x,
+        y: previewAnchorPoint.y - dragState.ghostAnchorPoint.y
+      }
+      : null;
+    const translatedGhostCellCenters = anchorDelta
+      ? ghostCellCenters.map((center) => ({
+        ...center,
+        x: center.x + anchorDelta.x,
+        y: center.y + anchorDelta.y
+      }))
+      : ghostCellCenters;
+    const maxCellDelta = translatedGhostCellCenters.length && previewCellCenters.length
+      ? getMaxCellCenterDelta(translatedGhostCellCenters, previewCellCenters)
+      : null;
+    if (maxCellDelta !== null && maxCellDelta > 2) {
+      console.warn('Hexzzle ghost/preview cell layout diverged', {
+        maxCellDelta,
+        piece: dragState?.piece?.id ?? dragState?.piece?.name ?? null,
+        ghostCellCenters,
+        previewCellCenters
+      });
+    }
 
     const previewLabel = preview?.previewAnchor
       ? `preview ${preview.valid ? 'valid' : preview.invalidReason ?? 'invalid'}`
@@ -664,8 +709,14 @@ export class GameScene extends Phaser.Scene {
     const ghostAnchorLabel = dragState?.ghostAnchorPoint
       ? `ghost anchor ${Math.round(dragState.ghostAnchorPoint.x)},${Math.round(dragState.ghostAnchorPoint.y)}`
       : 'ghost anchor none';
+    const cellDeltaLabel = maxCellDelta === null
+      ? 'max cell delta n/a'
+      : `max cell delta ${Math.round(maxCellDelta)}px`;
+    const pieceLabel = dragState?.piece
+      ? `piece ${dragState.piece.name ?? dragState.piece.id ?? 'unknown'} cells ${dragState.piece.cells.length}`
+      : 'piece none';
     this.dragDebugText.setText(
-      `ghost dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}\n${ghostAnchorLabel}\n${previewLabel} | ${anchorLabel}`
+      `ghost dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}\n${ghostAnchorLabel}\n${previewLabel} | ${anchorLabel}\n${cellDeltaLabel}\n${pieceLabel}`
     );
 
     const sample = {
@@ -682,6 +733,12 @@ export class GameScene extends Phaser.Scene {
         anchor: preview.previewAnchor,
         valid: preview.valid,
         invalidReason: preview.invalidReason
+      } : null,
+      maxCellDelta: maxCellDelta === null ? null : Math.round(maxCellDelta),
+      piece: dragState?.piece ? {
+        id: dragState.piece.id ?? null,
+        name: dragState.piece.name ?? null,
+        cellCount: dragState.piece.cells.length
       } : null,
       previewAnchorDiffers: Boolean(preview?.localAnchor && preview?.previewAnchor && !isSameCoord(preview.localAnchor, preview.previewAnchor))
     };
@@ -783,17 +840,9 @@ function isSameCoord(a, b) {
   return Boolean(a && b && a.q === b.q && a.r === b.r);
 }
 
-function drawPieceOnGraphics(graphics, piece, centerX, centerY, size, alpha = 1) {
-  const points = piece.cells.map((cell) => axialToPixel({ q: cell.dq, r: cell.dr }, size));
-  const minX = Math.min(...points.map((point) => point.x));
-  const maxX = Math.max(...points.map((point) => point.x));
-  const minY = Math.min(...points.map((point) => point.y));
-  const maxY = Math.max(...points.map((point) => point.y));
-  const offsetX = centerX - (minX + maxX) / 2;
-  const offsetY = centerY - (minY + maxY) / 2;
-
-  piece.cells.forEach((cell, index) => {
-    drawHex(graphics, points[index].x + offsetX, points[index].y + offsetY, size, {
+function drawPieceOnGraphics(graphics, piece, anchorX, anchorY, size, alpha = 1) {
+  getPiecePixelOffsetsFromAnchor(piece, size).forEach((cell) => {
+    drawHex(graphics, anchorX + cell.x, anchorY + cell.y, size, {
       fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
       alpha,
       line: 0xffffff,

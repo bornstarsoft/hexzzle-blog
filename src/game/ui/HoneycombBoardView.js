@@ -4,6 +4,10 @@ import {
   getInvalidFeedbackHexSize,
   getPreviewHexSize
 } from '../core/HexVisualLayout.js';
+import {
+  getPieceAxialOffsetsFromAnchor,
+  getPieceCellCentersForAnchor
+} from '../core/PieceVisualGeometry.js';
 
 const COLOR_MAP = {
   red: 0xef5a5a,
@@ -136,15 +140,19 @@ export class HoneycombBoardView {
       target
     ]));
 
-    piece.cells.forEach((cell) => {
+    const anchorPoint = this.toScreen(anchor);
+    const centers = getPieceCellCentersForAnchor(anchorPoint, piece, previewHexSize);
+    const offsets = getPieceAxialOffsetsFromAnchor(piece);
+
+    centers.forEach((cell, index) => {
+      const offset = offsets[index];
       const coord = {
-        q: anchor.q + cell.dq,
-        r: anchor.r + cell.dr
+        q: anchor.q + offset.dq,
+        r: anchor.r + offset.dr
       };
       const target = targetByOffset.get(`${coord.q},${coord.r}`);
-      const point = this.toScreen(coord);
       const targetBlocked = target?.blocked || target?.exists === false;
-      drawHex(this.overlay, point.x, point.y, previewHexSize, {
+      drawHex(this.overlay, cell.x, cell.y, previewHexSize, {
         fill,
         alpha: isValid ? 0.3 : targetBlocked ? 0.36 : 0.28,
         line: targetBlocked ? 0x7f1d1d : line,
@@ -160,12 +168,10 @@ export class HoneycombBoardView {
 
     const flash = this.scene.add.graphics();
     flash.setDepth(45);
-    piece.cells.forEach((cell) => {
-      const point = this.toScreen({
-        q: anchor.q + cell.dq,
-        r: anchor.r + cell.dr
-      });
-      drawHex(flash, point.x, point.y, getInvalidFeedbackHexSize(this.layout.hexSize), {
+    const size = getInvalidFeedbackHexSize(this.layout.hexSize);
+    const anchorPoint = this.toScreen(anchor);
+    getPieceCellCentersForAnchor(anchorPoint, piece, size).forEach((cell) => {
+      drawHex(flash, cell.x, cell.y, size, {
         fill: 0xef5a5a,
         alpha: 0.32,
         line: 0xef5a5a,

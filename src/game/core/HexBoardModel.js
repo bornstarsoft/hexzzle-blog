@@ -1,4 +1,5 @@
 import { HEX_DIRECTIONS, axialAdd, axialKey, getHexesInRadius } from './HexCoordinates.js';
+import { getPieceAxialOffsetsFromAnchor } from './PieceVisualGeometry.js';
 
 export class HexBoardModel {
   constructor(radius = 3) {
@@ -32,10 +33,10 @@ export class HexBoardModel {
   }
 
   getTargets(piece, anchor) {
-    return piece.cells.map((cell) => ({
-      q: anchor.q + cell.dq,
-      r: anchor.r + cell.dr,
-      color: cell.color
+    return getPieceAxialOffsetsFromAnchor(piece).map((offset) => ({
+      q: anchor.q + offset.dq,
+      r: anchor.r + offset.dr,
+      color: offset.color
     }));
   }
 

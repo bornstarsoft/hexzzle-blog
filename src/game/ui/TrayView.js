@@ -1,8 +1,11 @@
-import { axialToPixel } from '../core/HexCoordinates.js';
 import {
   getGameVisualLayout,
   getTrayPieceHexSize
 } from '../core/HexVisualLayout.js';
+import {
+  getCenteredPieceAnchorPoint,
+  getPieceCellCentersForCenteredPiece
+} from '../core/PieceVisualGeometry.js';
 import { drawHex } from './HoneycombBoardView.js';
 
 const COLOR_MAP = {
@@ -56,16 +59,8 @@ export class TrayView {
   }
 
   drawPiece(piece, centerX, centerY, size) {
-    const points = piece.cells.map((cell) => axialToPixel({ q: cell.dq, r: cell.dr }, size));
-    const minX = Math.min(...points.map((point) => point.x));
-    const maxX = Math.max(...points.map((point) => point.x));
-    const minY = Math.min(...points.map((point) => point.y));
-    const maxY = Math.max(...points.map((point) => point.y));
-    const offsetX = centerX - (minX + maxX) / 2;
-    const offsetY = centerY - (minY + maxY) / 2;
-
-    piece.cells.forEach((cell, index) => {
-      drawHex(this.graphics, points[index].x + offsetX, points[index].y + offsetY, size, {
+    getPieceCellCentersForCenteredPiece({ x: centerX, y: centerY }, piece, size).forEach((cell) => {
+      drawHex(this.graphics, cell.x, cell.y, size, {
         fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
         alpha: 0.94,
         line: 0xffffff,
@@ -87,6 +82,15 @@ export class TrayView {
 
   getSlotCenter(index) {
     return this.slotCenters[index] ? { ...this.slotCenters[index] } : null;
+  }
+
+  getPieceAnchorPoint(index, piece) {
+    const center = this.getSlotCenter(index);
+    if (!center || !piece) {
+      return null;
+    }
+
+    return getCenteredPieceAnchorPoint(center, piece, this.lastPieceSize);
   }
 
   getPieceSize() {
