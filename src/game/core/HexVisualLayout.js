@@ -1,9 +1,9 @@
-const MIN_HEX_VISUAL_SIZE = 20;
+const MIN_HEX_VISUAL_SIZE = 14;
 const MAX_HEX_VISUAL_SIZE = 36;
 const BOARD_RADIUS = 3;
 const BOARD_HALF_HEIGHT_FACTOR = BOARD_RADIUS * 1.5 + 1;
 const BOARD_HALF_WIDTH_FACTOR = Math.sqrt(3) * (BOARD_RADIUS + 0.5);
-const MAX_TRAY_PIECE_LINE_WIDTH_FACTOR = 3 * Math.sqrt(3);
+const MAX_TRAY_PIECE_LINE_WIDTH_FACTOR = 4 * Math.sqrt(3);
 
 export function getHexVisualSize({ width, height }) {
   const safeWidth = Math.max(320, width || 0);
@@ -173,10 +173,10 @@ function getTrayTotalWidth(width) {
   }
 
   if (width < 900) {
-    return Math.min(width - 32, 600);
+    return Math.min(width - 24, 760);
   }
 
-  return 620;
+  return Math.min(width - 80, 820);
 }
 
 function getTrayGap(width) {

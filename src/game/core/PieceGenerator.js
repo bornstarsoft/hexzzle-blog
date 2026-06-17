@@ -10,55 +10,69 @@ export const DEFAULT_DIFFICULTY_CONFIG = {
   addSixthColorAtScore: 5000,
   addSixthColorAfterBlooms: 10,
   maxActiveColors: 6,
-  tutorialTrayCount: 3,
+  tutorialTrayCount: 2,
   midScoreStart: 3000,
   midBloomStart: 6,
   lateScoreStart: 8000,
   lateBloomStart: 16,
   latePressureEmptyCells: 14,
-  tutorialSingleWeight: 40,
+  tutorialSingleWeight: 35,
   tutorialDuoWeight: 45,
-  tutorialTripleWeight: 15,
-  earlySingleWeight: 28,
-  earlyDuoWeight: 44,
-  earlyTripleWeight: 28,
-  midSingleWeight: 22,
-  midDuoWeight: 40,
-  midTripleWeight: 38,
-  lateMinSingleWeight: 18,
-  lateMinDuoWeight: 37,
-  lateMaxTripleWeight: 45,
+  tutorialTripleWeight: 20,
+  tutorialQuadWeight: 0,
+  earlySingleWeight: 22,
+  earlyDuoWeight: 38,
+  earlyTripleWeight: 32,
+  earlyQuadWeight: 8,
+  midSingleWeight: 18,
+  midDuoWeight: 34,
+  midTripleWeight: 35,
+  midQuadWeight: 13,
+  lateMinSingleWeight: 15,
+  lateMinDuoWeight: 30,
+  lateMaxTripleWeight: 35,
+  lateQuadWeight: 20,
   purpleGraceTrayCount: 6,
-  purpleGraceSingleWeight: 35,
-  purpleGraceDuoWeight: 45,
-  purpleGraceTripleWeight: 20,
+  purpleGraceSingleWeight: 25,
+  purpleGraceDuoWeight: 40,
+  purpleGraceTripleWeight: 28,
+  purpleGraceQuadWeight: 7,
   orangeGraceTrayCount: 8,
-  orangeGraceSingleWeight: 38,
-  orangeGraceDuoWeight: 44,
-  orangeGraceTripleWeight: 18,
+  orangeGraceSingleWeight: 22,
+  orangeGraceDuoWeight: 38,
+  orangeGraceTripleWeight: 30,
+  orangeGraceQuadWeight: 10,
   graceSameColorBias: 0.58,
+  quadSameColorBias: 0.16,
   graceNewColorChance: 0.18,
   purpleGraceNewColorChance: 0.18,
   orangeGraceNewColorChance: 0.14,
   purpleGraceMaxNewColorPieces: 2,
   orangeGraceMaxNewColorPieces: 2,
-  crowdedEmptyCellThreshold: 10,
-  criticalEmptyCellThreshold: 7,
+  crowdedEmptyCellThreshold: 12,
+  criticalEmptyCellThreshold: 8,
   criticalSmallPieceGuarantee: 2,
   severeEmptyCellThreshold: 5,
   crowdedSingleBoost: 10,
   crowdedDuoBoost: 10,
   crowdedTriplePenalty: 20,
+  crowdedQuadPenalty: 16,
   severeSingleBoost: 18,
   severeDuoBoost: 20,
   severeTriplePenalty: 38,
+  severeQuadPenalty: 20,
   stackOpportunityChanceEarly: 0.15,
   stackOpportunityChanceMid: 0.25,
   stackOpportunityChanceLate: 0.3,
   maxOpportunityPiecesPerTray: 1,
   trayRegenerationAttempts: 5,
   preventNoFitTrayWhenPossible: true,
-  allowAllTripleTrays: false
+  allowAllTripleTrays: false,
+  maxQuadPiecesPerTray: 1,
+  allowTwoQuadsWhenOpen: false,
+  twoQuadMinScore: 12000,
+  twoQuadMinEmptyCells: 24,
+  enableFiveCellPieces: false
 };
 
 export const PIECE_TEMPLATES = [
@@ -88,6 +102,42 @@ export const PIECE_TEMPLATES = [
       { dq: 1, dr: 0 },
       { dq: 0, dr: 1 }
     ]
+  },
+  {
+    name: 'quadLine',
+    offsets: [
+      { dq: 0, dr: 0 },
+      { dq: 1, dr: 0 },
+      { dq: 2, dr: 0 },
+      { dq: 3, dr: 0 }
+    ]
+  },
+  {
+    name: 'quadBend',
+    offsets: [
+      { dq: 0, dr: 0 },
+      { dq: 1, dr: 0 },
+      { dq: 2, dr: 0 },
+      { dq: 2, dr: -1 }
+    ]
+  },
+  {
+    name: 'quadHook',
+    offsets: [
+      { dq: 0, dr: 0 },
+      { dq: 1, dr: 0 },
+      { dq: 1, dr: -1 },
+      { dq: 2, dr: -1 }
+    ]
+  },
+  {
+    name: 'quadCluster',
+    offsets: [
+      { dq: 0, dr: 0 },
+      { dq: 1, dr: 0 },
+      { dq: 0, dr: 1 },
+      { dq: 1, dr: -1 }
+    ]
   }
 ];
 
@@ -96,7 +146,9 @@ export class PieceGenerator {
     this.random = random;
     this.config = config;
     this.pieceCounter = 0;
-    this.variants = buildPieceVariants();
+    this.variants = buildPieceVariants().filter((variant) => (
+      this.getDifficultyConfig().enableFiveCellPieces || variant.offsets.length <= 4
+    ));
     this.fifthColorUnlocked = false;
     this.fifthColorGraceRemaining = 0;
     this.sixthColorUnlocked = false;
@@ -144,16 +196,19 @@ export class PieceGenerator {
     const opportunity = this.createStackOpportunity({ board, activeColors, phase: profile.phase });
     const tray = [];
     let smallCount = 0;
-    let tripleCount = 0;
+    let largeCount = 0;
+    let quadCount = 0;
 
     for (let index = 0; index < 3; index += 1) {
       const opportunityColor = this.getOpportunityColorForSlot(opportunity, index);
       const sizeClass = this.pickSizeClass(profile.weights, {
         slotsRemaining: 3 - index,
         smallCount,
-        tripleCount,
+        largeCount,
+        quadCount,
         minSmallPieces: profile.minSmallPieces,
-        maxTriplePieces: profile.maxTriplePieces,
+        maxLargePieces: profile.maxLargePieces,
+        maxQuadPieces: profile.maxQuadPieces,
         forcedSizeClass: opportunityColor ? this.getOpportunitySizeClass(opportunity) : null
       });
       const piece = this.generatePiece({
@@ -172,7 +227,10 @@ export class PieceGenerator {
       if (isSmallSizeClass(sizeClass)) {
         smallCount += 1;
       } else {
-        tripleCount += 1;
+        largeCount += 1;
+      }
+      if (sizeClass === 'quad') {
+        quadCount += 1;
       }
     }
 
@@ -213,9 +271,11 @@ export class PieceGenerator {
     const difficulty = this.getDifficultyConfig();
     const activeGracePhase = gracePhase ?? (graceActive ? 'purpleGrace' : null);
     const usefulEarlyBias = placements < 5 ? 0.62 : 0.36;
-    const sameColorBias = activeGracePhase ? clamp01(difficulty.graceSameColorBias) : usefulEarlyBias;
     const profile = this.getTrayProfile({ score, placements, blooms, emptyCells, gracePhase: activeGracePhase });
     const variant = this.pickVariant({ sizeClass, weights: profile.weights });
+    const sameColorBias = variant.offsets.length >= 4
+      ? clamp01(difficulty.quadSameColorBias ?? 0.16)
+      : activeGracePhase ? clamp01(difficulty.graceSameColorBias) : usefulEarlyBias;
     const sameColorPiece = Boolean(opportunityColor) || this.random() < sameColorBias || variant.offsets.length === 1;
     const mainColor = opportunityColor ?? this.pickColor(colors, { gracePhase: activeGracePhase, colorBudget });
     const cells = variant.offsets.map((offset) => ({
@@ -243,9 +303,11 @@ export class PieceGenerator {
   pickSizeClass(weights, {
     slotsRemaining = 1,
     smallCount = 0,
-    tripleCount = 0,
+    largeCount = 0,
+    quadCount = 0,
     minSmallPieces = 1,
-    maxTriplePieces = 2,
+    maxLargePieces = 2,
+    maxQuadPieces = 1,
     forcedSizeClass = null
   } = {}) {
     if (forcedSizeClass) {
@@ -256,15 +318,24 @@ export class PieceGenerator {
       return this.pickWeightedSizeClass({
         single: weights.single,
         duo: weights.duo,
-        triple: 0
+        triple: 0,
+        quad: 0
       });
     }
 
-    if (tripleCount >= maxTriplePieces) {
+    if (largeCount >= maxLargePieces) {
       return this.pickWeightedSizeClass({
         single: weights.single,
         duo: weights.duo,
-        triple: 0
+        triple: 0,
+        quad: 0
+      });
+    }
+
+    if (quadCount >= maxQuadPieces) {
+      return this.pickWeightedSizeClass({
+        ...weights,
+        quad: 0
       });
     }
 
@@ -273,10 +344,13 @@ export class PieceGenerator {
 
   pickWeightedSizeClass(weights) {
     const normalized = normalizeWeights(weights);
-    const totalWeight = normalized.single + normalized.duo + normalized.triple;
+    const totalWeight = normalized.single + normalized.duo + normalized.triple + normalized.quad;
+    if (totalWeight <= 0) {
+      return 'duo';
+    }
     let cursor = this.random() * totalWeight;
 
-    for (const sizeClass of ['single', 'duo', 'triple']) {
+    for (const sizeClass of ['single', 'duo', 'triple', 'quad']) {
       cursor -= normalized[sizeClass];
       if (cursor <= 0) {
         return sizeClass;
@@ -295,13 +369,20 @@ export class PieceGenerator {
     const minSmallPieces = critical
       ? Math.max(1, difficulty.criticalSmallPieceGuarantee ?? 2)
       : phase === 'tutorial' ? 2 : 1;
-    const maxTriplePieces = difficulty.allowAllTripleTrays ? 3 : 2;
+    const maxLargePieces = difficulty.allowAllTripleTrays ? 3 : 2;
+    const openLateTwoQuads = Boolean(difficulty.allowTwoQuadsWhenOpen) &&
+      phase === 'late' &&
+      score >= (difficulty.twoQuadMinScore ?? 12000) &&
+      Number.isFinite(emptyCells) &&
+      emptyCells >= (difficulty.twoQuadMinEmptyCells ?? 24);
+    const maxQuadPieces = openLateTwoQuads ? 2 : Math.max(0, difficulty.maxQuadPiecesPerTray ?? 1);
 
     return {
       phase,
       weights,
       minSmallPieces,
-      maxTriplePieces
+      maxLargePieces,
+      maxQuadPieces
     };
   }
 
@@ -342,37 +423,44 @@ export class PieceGenerator {
       early: {
         single: difficulty.earlySingleWeight,
         duo: difficulty.earlyDuoWeight,
-        triple: difficulty.earlyTripleWeight
+        triple: difficulty.earlyTripleWeight,
+        quad: difficulty.earlyQuadWeight
       },
       tutorial: {
         single: difficulty.tutorialSingleWeight ?? difficulty.earlySingleWeight,
         duo: difficulty.tutorialDuoWeight ?? difficulty.earlyDuoWeight,
-        triple: difficulty.tutorialTripleWeight ?? difficulty.earlyTripleWeight
+        triple: difficulty.tutorialTripleWeight ?? difficulty.earlyTripleWeight,
+        quad: difficulty.tutorialQuadWeight ?? 0
       },
       earlyChallenge: {
         single: difficulty.earlySingleWeight,
         duo: difficulty.earlyDuoWeight,
-        triple: difficulty.earlyTripleWeight
+        triple: difficulty.earlyTripleWeight,
+        quad: difficulty.earlyQuadWeight
       },
       mid: {
         single: difficulty.midSingleWeight,
         duo: difficulty.midDuoWeight,
-        triple: difficulty.midTripleWeight
+        triple: difficulty.midTripleWeight,
+        quad: difficulty.midQuadWeight
       },
       purpleGrace: {
         single: difficulty.purpleGraceSingleWeight,
         duo: difficulty.purpleGraceDuoWeight,
-        triple: difficulty.purpleGraceTripleWeight
+        triple: difficulty.purpleGraceTripleWeight,
+        quad: difficulty.purpleGraceQuadWeight
       },
       orangeGrace: {
         single: difficulty.orangeGraceSingleWeight,
         duo: difficulty.orangeGraceDuoWeight,
-        triple: difficulty.orangeGraceTripleWeight
+        triple: difficulty.orangeGraceTripleWeight,
+        quad: difficulty.orangeGraceQuadWeight
       },
       late: {
         single: difficulty.lateMinSingleWeight,
         duo: difficulty.lateMinDuoWeight,
-        triple: difficulty.lateMaxTripleWeight
+        triple: difficulty.lateMaxTripleWeight,
+        quad: difficulty.lateQuadWeight
       }
     };
     const weights = { ...(weightsByPhase[phase] ?? weightsByPhase.early) };
@@ -381,12 +469,18 @@ export class PieceGenerator {
       weights.single += difficulty.crowdedSingleBoost;
       weights.duo += difficulty.crowdedDuoBoost;
       weights.triple = Math.max(0, weights.triple - difficulty.crowdedTriplePenalty);
+      weights.quad = Math.max(0, weights.quad - (difficulty.crowdedQuadPenalty ?? weights.quad));
+    }
+
+    if (Number.isFinite(emptyCells) && emptyCells <= difficulty.criticalEmptyCellThreshold) {
+      weights.quad = 0;
     }
 
     if (Number.isFinite(emptyCells) && emptyCells <= difficulty.severeEmptyCellThreshold) {
       weights.single += difficulty.severeSingleBoost;
       weights.duo += difficulty.severeDuoBoost;
       weights.triple = Math.max(0, weights.triple - difficulty.severeTriplePenalty);
+      weights.quad = Math.max(0, weights.quad - (difficulty.severeQuadPenalty ?? weights.quad));
     }
 
     return normalizeWeights(weights);
@@ -717,7 +811,8 @@ function normalizeWeights(weights) {
   return {
     single: Math.max(0, weights?.single ?? 0),
     duo: Math.max(0, weights?.duo ?? 0),
-    triple: Math.max(0, weights?.triple ?? 0)
+    triple: Math.max(0, weights?.triple ?? 0),
+    quad: Math.max(0, weights?.quad ?? 0)
   };
 }
 
@@ -732,7 +827,15 @@ function getVariantSizeClass(variant) {
     return 'duo';
   }
 
-  return 'triple';
+  if (cellCount === 3) {
+    return 'triple';
+  }
+
+  if (cellCount === 4) {
+    return 'quad';
+  }
+
+  return 'oversized';
 }
 
 function isSmallSizeClass(sizeClass) {

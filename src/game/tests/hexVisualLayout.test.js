@@ -25,13 +25,15 @@ test('tray, ghost, and preview hex cells share the board visual size', () => {
   assert.equal(getInvalidFeedbackHexSize(boardHexSize), boardHexSize);
 });
 
-test('mobile tray slots fit a board-size three-cell line without shrinking tray pieces', () => {
+test('mobile tray slots fit a board-size four-cell line without shrinking tray pieces', () => {
   for (const width of [360, 390, 430]) {
     const boardHexSize = getHexVisualSize({ width, height: 548 });
     const tray = getTrayLayout({ width, height: 548, hexSize: boardHexSize });
+    const fourCellLineWidth = 4 * Math.sqrt(3) * boardHexSize;
 
     assert.equal(tray.slotCount, 3);
-    assert.ok(getMaxTrayPieceVisualWidth(boardHexSize) <= tray.pieceWidth);
+    assert.ok(getMaxTrayPieceVisualWidth(boardHexSize) >= fourCellLineWidth);
+    assert.ok(fourCellLineWidth <= tray.pieceWidth);
   }
 });
 

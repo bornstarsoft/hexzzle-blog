@@ -204,6 +204,77 @@ test('same-color duplicated piece exposes source cells and target cell for gathe
   assert.equal(board.getCellCount({ q: 0, r: 0 }), 3);
 });
 
+test('same-color quad in empty space resolves to one stack count 4', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'green' },
+      { dq: 1, dr: 0, color: 'green' },
+      { dq: 2, dr: 0, color: 'green' },
+      { dq: 3, dr: 0, color: 'green' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: -1, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: 'green', count: 1 }));
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: -1, r: 0 } });
+
+  assert.equal(result.gatherPlans.length, 1);
+  assert.equal(result.gatherPlans[0].totalCount, 4);
+  assert.equal(result.gatherPlans[0].willBloom, false);
+  assert.deepEqual(result.gatherPlans[0].targetCountSequence, [1, 2, 3, 4]);
+  assert.equal(board.getCellCount({ q: -1, r: 0 }), 4);
+  assert.equal(board.getCell({ q: 0, r: 0 }), null);
+  assert.equal(board.getCell({ q: 1, r: 0 }), null);
+  assert.equal(board.getCell({ q: 2, r: 0 }), null);
+});
+
+test('same-color quad adjacent to stack 2 gathers and Blooms at count 6', () => {
+  const board = new HexBoardModel(3);
+  board.setCell({ q: -2, r: 0 }, { color: 'blue', count: 2 });
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'blue' },
+      { dq: 1, dr: 0, color: 'blue' },
+      { dq: 2, dr: 0, color: 'blue' },
+      { dq: 3, dr: 0, color: 'blue' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: -1, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: 'blue', count: 1 }));
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: -1, r: 0 } });
+
+  assert.equal(result.blooms.length, 1);
+  assert.equal(result.blooms[0].totalCount, 6);
+  assert.equal(result.blooms[0].willBloom, true);
+  assert.deepEqual(result.blooms[0].bloomOrigins, [{ q: -1, r: 0, color: 'blue', totalCount: 6 }]);
+  assert.equal(board.getCell({ q: -2, r: 0 }), null);
+  assert.equal(board.getCell({ q: -1, r: 0 }), null);
+});
+
+test('mixed-color quad resolves duplicated colors without merging unique colors', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'red' },
+      { dq: 1, dr: 0, color: 'red' },
+      { dq: 1, dr: -1, color: 'blue' },
+      { dq: 2, dr: -1, color: 'green' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: 0, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: cell.color, count: 1 }));
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: 0, r: 0 } });
+
+  assert.equal(result.merges.length, 1);
+  assert.equal(board.getCellCount({ q: 0, r: 0 }), 2);
+  assert.equal(board.getCell({ q: 1, r: 0 }), null);
+  assert.equal(board.getCellCount({ q: 1, r: -1 }), 1);
+  assert.equal(board.getCellCount({ q: 2, r: -1 }), 1);
+});
+
 test('6+ Bloom plan uses one final target and exposes overbloom count', () => {
   const board = new HexBoardModel(3);
   board.setCell({ q: 0, r: 0 }, { color: 'orange', count: 5 });

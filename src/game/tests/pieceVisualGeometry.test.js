@@ -43,6 +43,15 @@ const pieces = [
       { dq: 1, dr: 0, color: 'green' },
       { dq: 1, dr: 1, color: 'green' }
     ]
+  },
+  {
+    name: 'quad hook',
+    cells: [
+      { dq: 0, dr: 0, color: 'orange' },
+      { dq: 1, dr: 0, color: 'orange' },
+      { dq: 1, dr: -1, color: 'blue' },
+      { dq: 2, dr: -1, color: 'blue' }
+    ]
   }
 ];
 

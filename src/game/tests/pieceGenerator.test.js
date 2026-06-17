@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { HEX_DIRECTIONS } from '../core/HexCoordinates.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
-import { PieceGenerator } from '../core/PieceGenerator.js';
+import { PIECE_TEMPLATES, PieceGenerator } from '../core/PieceGenerator.js';
 
 const TUNED_DIFFICULTY = {
   startColors: 4,
@@ -11,63 +12,87 @@ const TUNED_DIFFICULTY = {
   addSixthColorAtScore: 5000,
   addSixthColorAfterBlooms: 10,
   maxActiveColors: 6,
-  tutorialTrayCount: 3,
+  tutorialTrayCount: 2,
   midScoreStart: 3000,
   midBloomStart: 6,
   lateScoreStart: 8000,
   lateBloomStart: 16,
   latePressureEmptyCells: 14,
-  tutorialSingleWeight: 40,
+  tutorialSingleWeight: 35,
   tutorialDuoWeight: 45,
-  tutorialTripleWeight: 15,
-  earlySingleWeight: 28,
-  earlyDuoWeight: 44,
-  earlyTripleWeight: 28,
-  midSingleWeight: 22,
-  midDuoWeight: 40,
-  midTripleWeight: 38,
-  lateMinSingleWeight: 18,
-  lateMinDuoWeight: 37,
-  lateMaxTripleWeight: 45,
+  tutorialTripleWeight: 20,
+  tutorialQuadWeight: 0,
+  earlySingleWeight: 22,
+  earlyDuoWeight: 38,
+  earlyTripleWeight: 32,
+  earlyQuadWeight: 8,
+  midSingleWeight: 18,
+  midDuoWeight: 34,
+  midTripleWeight: 35,
+  midQuadWeight: 13,
+  lateMinSingleWeight: 15,
+  lateMinDuoWeight: 30,
+  lateMaxTripleWeight: 35,
+  lateQuadWeight: 20,
   purpleGraceTrayCount: 6,
-  purpleGraceSingleWeight: 35,
-  purpleGraceDuoWeight: 45,
-  purpleGraceTripleWeight: 20,
+  purpleGraceSingleWeight: 25,
+  purpleGraceDuoWeight: 40,
+  purpleGraceTripleWeight: 28,
+  purpleGraceQuadWeight: 7,
   orangeGraceTrayCount: 8,
-  orangeGraceSingleWeight: 38,
-  orangeGraceDuoWeight: 44,
-  orangeGraceTripleWeight: 18,
+  orangeGraceSingleWeight: 22,
+  orangeGraceDuoWeight: 38,
+  orangeGraceTripleWeight: 30,
+  orangeGraceQuadWeight: 10,
   graceSameColorBias: 0.58,
+  quadSameColorBias: 0.16,
   graceNewColorChance: 0.18,
   purpleGraceNewColorChance: 0.18,
   orangeGraceNewColorChance: 0.14,
   purpleGraceMaxNewColorPieces: 2,
   orangeGraceMaxNewColorPieces: 2,
-  crowdedEmptyCellThreshold: 10,
-  criticalEmptyCellThreshold: 7,
+  crowdedEmptyCellThreshold: 12,
+  criticalEmptyCellThreshold: 8,
   criticalSmallPieceGuarantee: 2,
   severeEmptyCellThreshold: 5,
   crowdedSingleBoost: 10,
   crowdedDuoBoost: 10,
   crowdedTriplePenalty: 20,
+  crowdedQuadPenalty: 16,
   severeSingleBoost: 18,
   severeDuoBoost: 20,
   severeTriplePenalty: 38,
+  severeQuadPenalty: 20,
   stackOpportunityChanceEarly: 0.15,
   stackOpportunityChanceMid: 0.25,
   stackOpportunityChanceLate: 0.3,
   maxOpportunityPiecesPerTray: 1,
   trayRegenerationAttempts: 5,
   preventNoFitTrayWhenPossible: true,
-  allowAllTripleTrays: false
+  allowAllTripleTrays: false,
+  maxQuadPiecesPerTray: 1,
+  allowTwoQuadsWhenOpen: false,
+  enableFiveCellPieces: false
 };
+
+test('quad templates exist and are connected axial shapes', () => {
+  const quadTemplates = PIECE_TEMPLATES.filter((template) => template.offsets.length === 4);
+
+  assert.deepEqual(
+    quadTemplates.map((template) => template.name).sort(),
+    ['quadBend', 'quadCluster', 'quadHook', 'quadLine']
+  );
+  quadTemplates.forEach((template) => {
+    assert.equal(isConnectedOffsets(template.offsets), true, `${template.name} should be connected`);
+  });
+});
 
 test('generates a tray with exactly 3 pieces using the active color count', () => {
   const generator = createGenerator({ random: () => 0 });
   const tray = generator.generateTray({ score: 0, placements: 0, blooms: 0, emptyCells: 37 });
 
   assert.equal(tray.length, 3);
-  assert.ok(tray.every((piece) => piece.cells.length >= 1 && piece.cells.length <= 3));
+  assert.ok(tray.every((piece) => piece.cells.length >= 1 && piece.cells.length <= 4));
   assert.ok(tray.flatMap((piece) => piece.cells).every((cell) => ['red', 'blue', 'yellow', 'green'].includes(cell.color)));
 });
 
@@ -100,28 +125,30 @@ test('caps active color progression at six colors', () => {
   assert.deepEqual(generator.getActiveColors({ score: 999999, blooms: 999999 }), ['red', 'blue', 'yellow', 'green', 'purple', 'orange']);
 });
 
-test('tutorial phase lasts only the first three tray refills', () => {
+test('tutorial phase lasts only the first two tray refills', () => {
   const generator = createGenerator({ random: () => 0.5 });
   const profile = generator.getTrayProfile({ score: 0, placements: 0, blooms: 0, emptyCells: 37 });
 
   assert.equal(profile.phase, 'tutorial');
-  assert.equal(profile.weights.single, 40);
+  assert.equal(profile.weights.single, 35);
   assert.equal(profile.weights.duo, 45);
-  assert.equal(profile.weights.triple, 15);
+  assert.equal(profile.weights.triple, 20);
+  assert.equal(profile.weights.quad, 0);
   assert.equal(profile.minSmallPieces, 2);
 
-  generator.trayRefillCount = 3;
+  generator.trayRefillCount = 2;
   const challenge = generator.getTrayProfile({ score: 1200, placements: 9, blooms: 2, emptyCells: 30 });
 
   assert.equal(challenge.phase, 'earlyChallenge');
   assert.equal(challenge.minSmallPieces, 1);
 });
 
-test('early trays enforce at least two small pieces', () => {
+test('tutorial trays enforce at least two small pieces and generate no quads', () => {
   const generator = createGenerator({ random: () => 0.99 });
   const tray = generator.generateTray({ score: 0, placements: 0, blooms: 0, emptyCells: 37 });
 
   assert.ok(countSmallPieces(tray) >= 2);
+  assert.equal(countQuadPieces(tray), 0);
 });
 
 test('early challenge and mid trays enforce at least one small piece', () => {
@@ -142,55 +169,71 @@ test('early challenge and mid trays enforce at least one small piece', () => {
 test('early challenge has more triple presence than tutorial', () => {
   const generator = createGenerator({ random: () => 0.5 });
   const tutorial = generator.getTrayProfile({ score: 0, placements: 0, blooms: 0, emptyCells: 37 });
-  generator.trayRefillCount = 3;
+  generator.trayRefillCount = 2;
   const earlyChallenge = generator.getTrayProfile({ score: 1600, placements: 12, blooms: 3, emptyCells: 28 });
 
   assert.equal(earlyChallenge.phase, 'earlyChallenge');
   assert.ok(earlyChallenge.weights.triple > tutorial.weights.triple);
-  assert.equal(earlyChallenge.weights.single, 28);
-  assert.equal(earlyChallenge.weights.duo, 44);
-  assert.equal(earlyChallenge.weights.triple, 28);
+  assert.equal(earlyChallenge.weights.single, 22);
+  assert.equal(earlyChallenge.weights.duo, 38);
+  assert.equal(earlyChallenge.weights.triple, 32);
+  assert.equal(earlyChallenge.weights.quad, 8);
+  assert.ok(earlyChallenge.weights.quad > tutorial.weights.quad);
 });
 
-test('late trays keep minimum single and duo weights and cap triple weight', () => {
+test('mid and late trays add controlled quad weight while preserving small pieces', () => {
+  const midGenerator = createGenerator({ random: () => 0.5 });
+  midGenerator.trayRefillCount = 8;
+  const mid = midGenerator.getTrayProfile({ score: 3600, placements: 32, blooms: 7, emptyCells: 22 });
   const generator = createGenerator({ random: () => 0.99 });
   generator.trayRefillCount = 20;
-  const profile = generator.getTrayProfile({ score: 8000, placements: 60, blooms: 20, emptyCells: 20 });
+  const late = generator.getTrayProfile({ score: 8000, placements: 60, blooms: 20, emptyCells: 20 });
 
-  assert.equal(profile.phase, 'late');
-  assert.equal(profile.weights.single, 18);
-  assert.equal(profile.weights.duo, 37);
-  assert.equal(profile.weights.triple, 45);
-  assert.equal(profile.minSmallPieces, 1);
+  assert.equal(mid.phase, 'mid');
+  assert.equal(mid.weights.single, 18);
+  assert.equal(mid.weights.duo, 34);
+  assert.equal(mid.weights.triple, 35);
+  assert.equal(mid.weights.quad, 13);
+  assert.equal(late.phase, 'late');
+  assert.equal(late.weights.single, 15);
+  assert.equal(late.weights.duo, 30);
+  assert.equal(late.weights.triple, 35);
+  assert.equal(late.weights.quad, 20);
+  assert.equal(late.minSmallPieces, 1);
 });
 
-test('all-triple trays are prevented in MVP', () => {
+test('all-large and multi-quad trays are prevented in MVP', () => {
   const generator = createGenerator({ random: () => 0.99 });
   generator.trayRefillCount = 20;
   const tray = generator.generateTray({ score: 9000, placements: 70, blooms: 22, emptyCells: 20 });
 
-  assert.ok(countTriplePieces(tray) <= 2);
+  assert.ok(countLargePieces(tray) <= 2);
+  assert.ok(countQuadPieces(tray) <= 1);
   assert.ok(countSmallPieces(tray) >= 1);
 });
 
-test('crowded board increases small piece weighting', () => {
+test('crowded board increases small piece weighting and suppresses quads', () => {
   const generator = createGenerator({ random: () => 0.5 });
   generator.trayRefillCount = 20;
 
   const normal = generator.getPieceSizeWeights({ phase: 'late', emptyCells: 20 });
-  const crowded = generator.getPieceSizeWeights({ phase: 'late', emptyCells: 10 });
+  const crowded = generator.getPieceSizeWeights({ phase: 'late', emptyCells: 12 });
 
   assert.equal(crowded.single, normal.single + 10);
   assert.equal(crowded.duo, normal.duo + 10);
   assert.equal(crowded.triple, normal.triple - 20);
+  assert.equal(crowded.quad, normal.quad - 16);
 });
 
-test('critical low empty cells force at least two small pieces', () => {
+test('critical low empty cells force at least two small pieces and disable quads', () => {
   const generator = createGenerator({ random: () => 0.99 });
   generator.trayRefillCount = 20;
-  const tray = generator.generateTray({ score: 9000, placements: 70, blooms: 22, emptyCells: 7 });
+  const tray = generator.generateTray({ score: 9000, placements: 70, blooms: 22, emptyCells: 8 });
+  const weights = generator.getPieceSizeWeights({ phase: 'late', emptyCells: 8 });
 
   assert.ok(countSmallPieces(tray) >= 2);
+  assert.equal(weights.quad, 0);
+  assert.equal(countQuadPieces(tray), 0);
 });
 
 test('purple unlock grace uses easier weights and reduces triple rate', () => {
@@ -201,10 +244,12 @@ test('purple unlock grace uses easier weights and reduces triple rate', () => {
   const mid = generator.getTrayProfile({ score: 4000, placements: 40, blooms: 9, emptyCells: 20, graceActive: false });
 
   assert.equal(grace.phase, 'purpleGrace');
-  assert.equal(grace.weights.single, 35);
-  assert.equal(grace.weights.duo, 45);
-  assert.equal(grace.weights.triple, 20);
+  assert.equal(grace.weights.single, 25);
+  assert.equal(grace.weights.duo, 40);
+  assert.equal(grace.weights.triple, 28);
+  assert.equal(grace.weights.quad, 7);
   assert.ok(grace.weights.triple < mid.weights.triple);
+  assert.ok(grace.weights.quad < mid.weights.quad);
 });
 
 test('orange unlock grace uses easier weights and reduces triple rate', () => {
@@ -215,10 +260,12 @@ test('orange unlock grace uses easier weights and reduces triple rate', () => {
   const late = generator.getTrayProfile({ score: 7000, placements: 70, blooms: 20, emptyCells: 20, graceActive: false });
 
   assert.equal(grace.phase, 'orangeGrace');
-  assert.equal(grace.weights.single, 38);
-  assert.equal(grace.weights.duo, 44);
-  assert.equal(grace.weights.triple, 18);
+  assert.equal(grace.weights.single, 22);
+  assert.equal(grace.weights.duo, 38);
+  assert.equal(grace.weights.triple, 30);
+  assert.equal(grace.weights.quad, 10);
   assert.ok(grace.weights.triple < late.weights.triple);
+  assert.ok(grace.weights.quad < late.weights.quad);
 });
 
 test('starts a short small-piece grace period when the fifth color unlocks', () => {
@@ -300,6 +347,7 @@ test('critical board pressure strongly prefers small pieces', () => {
   assert.ok(weights.single >= 36);
   assert.ok(weights.duo >= 57);
   assert.ok(weights.triple <= 7);
+  assert.equal(weights.quad, 0);
   assert.ok(countSmallPieces(tray) >= 2);
 });
 
@@ -357,6 +405,16 @@ test('generated trays never use a seventh color', () => {
   assert.ok([...colors].every((color) => ['red', 'blue', 'yellow', 'green', 'purple', 'orange'].includes(color)));
 });
 
+test('generated pieces never exceed four cells in Classic', () => {
+  const generator = createGenerator({ random: () => 0.99 });
+  generator.trayRefillCount = 30;
+
+  for (let index = 0; index < 20; index += 1) {
+    const tray = generator.generateTray({ score: 20000, placements: 200, blooms: 60, emptyCells: 24 });
+    assert.ok(tray.every((piece) => piece.cells.length <= 4));
+  }
+});
+
 function createGenerator({ random = Math.random, difficulty = {} } = {}) {
   return new PieceGenerator({
     random,
@@ -375,6 +433,41 @@ function countSmallPieces(tray) {
 
 function countTriplePieces(tray) {
   return tray.filter((piece) => piece.cells.length === 3).length;
+}
+
+function countQuadPieces(tray) {
+  return tray.filter((piece) => piece.cells.length === 4).length;
+}
+
+function countLargePieces(tray) {
+  return tray.filter((piece) => piece.cells.length >= 3).length;
+}
+
+function isConnectedOffsets(offsets) {
+  const keys = new Set(offsets.map((offset) => `${offset.dq},${offset.dr}`));
+  const visited = new Set();
+  const stack = [offsets[0]];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const key = `${current.dq},${current.dr}`;
+    if (visited.has(key)) {
+      continue;
+    }
+
+    visited.add(key);
+    HEX_DIRECTIONS.forEach((direction) => {
+      const next = {
+        dq: current.dq + direction.q,
+        dr: current.dr + direction.r
+      };
+      if (keys.has(`${next.dq},${next.dr}`) && !visited.has(`${next.dq},${next.dr}`)) {
+        stack.push(next);
+      }
+    });
+  }
+
+  return visited.size === offsets.length;
 }
 
 function createNearlyFullBoard(emptyCoords = []) {
