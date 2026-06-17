@@ -11,8 +11,9 @@ description: "Learn the rules of Hexzzle: place pieces, stack matching colors, r
 3. Adjacent matching colors merge into one Bloom Stack.
 4. Reach 6 in a stack to make the hive bloom.
 5. Disconnected matching colors do not merge.
-6. Keep space open.
-7. Use Undo wisely.
-8. Share your result after the game.
+6. More colors appear as your Bloom score grows.
+7. Keep space open.
+8. Use Undo wisely.
+9. Share your result after the game.
 
 Hexzzle is built for short sessions. There is no timer pressure, no login, and no reward for sharing.

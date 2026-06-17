@@ -5,10 +5,11 @@ export const COLOR_IDS = ['red', 'blue', 'yellow', 'green', 'purple', 'orange'];
 
 export const DEFAULT_DIFFICULTY_CONFIG = {
   startColors: 4,
-  addFifthColorAtScore: 3000,
-  addFifthColorAfterBlooms: 8,
-  addSixthColorAtScore: 999999,
-  addSixthColorAfterBlooms: 999999,
+  addFifthColorAtScore: 2200,
+  addFifthColorAfterBlooms: 5,
+  addSixthColorAtScore: 6500,
+  addSixthColorAfterBlooms: 18,
+  maxActiveColors: 6,
   earlyTrayCount: 6,
   earlyScoreLimit: 800,
   earlyBloomLimit: 3,
@@ -32,8 +33,16 @@ export const DEFAULT_DIFFICULTY_CONFIG = {
   purpleGraceSingleWeight: 35,
   purpleGraceDuoWeight: 45,
   purpleGraceTripleWeight: 20,
+  orangeGraceTrayCount: 8,
+  orangeGraceSingleWeight: 38,
+  orangeGraceDuoWeight: 44,
+  orangeGraceTripleWeight: 18,
   graceSameColorBias: 0.58,
   graceNewColorChance: 0.18,
+  purpleGraceNewColorChance: 0.18,
+  orangeGraceNewColorChance: 0.14,
+  purpleGraceMaxNewColorPieces: 2,
+  orangeGraceMaxNewColorPieces: 2,
   crowdedEmptyCellThreshold: 10,
   criticalEmptyCellThreshold: 7,
   crowdedSingleBoost: 10,
@@ -80,6 +89,8 @@ export class PieceGenerator {
     this.variants = buildPieceVariants();
     this.fifthColorUnlocked = false;
     this.fifthColorGraceRemaining = 0;
+    this.sixthColorUnlocked = false;
+    this.sixthColorGraceRemaining = 0;
     this.trayRefillCount = 0;
   }
 
@@ -93,7 +104,8 @@ export class PieceGenerator {
   getActiveColors(progress = {}) {
     const difficulty = this.getDifficultyConfig();
     const { score, blooms } = normalizeProgress(progress);
-    const startColors = difficulty.startColors;
+    const maxActiveColors = Math.min(difficulty.maxActiveColors ?? COLOR_IDS.length, COLOR_IDS.length);
+    const startColors = Math.min(difficulty.startColors, maxActiveColors);
     let count = startColors;
 
     if (
@@ -110,13 +122,15 @@ export class PieceGenerator {
       count = Math.max(count, 6);
     }
 
-    return COLOR_IDS.slice(0, Math.min(count, COLOR_IDS.length));
+    return COLOR_IDS.slice(0, Math.min(count, maxActiveColors, COLOR_IDS.length));
   }
 
   generateTray({ score = 0, placements = 0, blooms = 0, emptyCells = null } = {}) {
     const activeColors = this.getActiveColors({ score, blooms });
-    const graceActive = this.updateFifthColorGrace(activeColors);
-    const profile = this.getTrayProfile({ score, placements, blooms, emptyCells, graceActive });
+    const gracePhase = this.updateColorGrace(activeColors);
+    const graceActive = Boolean(gracePhase);
+    const colorBudget = this.createGraceColorBudget(activeColors, gracePhase);
+    const profile = this.getTrayProfile({ score, placements, blooms, emptyCells, gracePhase });
     const tray = [];
     let smallCount = 0;
     let tripleCount = 0;
@@ -135,6 +149,8 @@ export class PieceGenerator {
         blooms,
         activeColors,
         graceActive,
+        gracePhase,
+        colorBudget,
         sizeClass
       });
 
@@ -146,8 +162,12 @@ export class PieceGenerator {
       }
     }
 
-    if (graceActive) {
+    if (gracePhase === 'purpleGrace') {
       this.fifthColorGraceRemaining = Math.max(0, this.fifthColorGraceRemaining - 1);
+    }
+
+    if (gracePhase === 'orangeGrace') {
+      this.sixthColorGraceRemaining = Math.max(0, this.sixthColorGraceRemaining - 1);
     }
 
     this.trayRefillCount += 1;
@@ -161,21 +181,25 @@ export class PieceGenerator {
     blooms = 0,
     activeColors = null,
     graceActive = false,
+    gracePhase = null,
+    colorBudget = null,
     sizeClass = null,
     emptyCells = null
   } = {}) {
     const colors = activeColors ?? this.getActiveColors({ score, blooms });
     const difficulty = this.getDifficultyConfig();
+    const activeGracePhase = gracePhase ?? (graceActive ? 'purpleGrace' : null);
     const usefulEarlyBias = placements < 5 ? 0.62 : 0.36;
-    const sameColorBias = graceActive ? clamp01(difficulty.graceSameColorBias) : usefulEarlyBias;
-    const profile = this.getTrayProfile({ score, placements, blooms, emptyCells, graceActive });
+    const sameColorBias = activeGracePhase ? clamp01(difficulty.graceSameColorBias) : usefulEarlyBias;
+    const profile = this.getTrayProfile({ score, placements, blooms, emptyCells, gracePhase: activeGracePhase });
     const variant = this.pickVariant({ sizeClass, weights: profile.weights });
     const sameColorPiece = this.random() < sameColorBias || variant.offsets.length === 1;
-    const mainColor = this.pickColor(colors, { graceActive });
+    const mainColor = this.pickColor(colors, { gracePhase: activeGracePhase, colorBudget });
     const cells = variant.offsets.map((offset) => ({
       ...offset,
-      color: sameColorPiece ? mainColor : this.pickColor(colors, { graceActive })
+      color: sameColorPiece ? mainColor : this.pickColor(colors, { gracePhase: activeGracePhase, colorBudget })
     }));
+    this.registerGraceNewColorUse(cells, colorBudget);
 
     this.pieceCounter += 1;
 
@@ -234,9 +258,10 @@ export class PieceGenerator {
     return 'duo';
   }
 
-  getTrayProfile({ score = 0, placements = 0, blooms = 0, emptyCells = null, graceActive = false } = {}) {
+  getTrayProfile({ score = 0, placements = 0, blooms = 0, emptyCells = null, graceActive = false, gracePhase = null } = {}) {
     const difficulty = this.getDifficultyConfig();
-    const phase = this.getTrayPhase({ score, placements, blooms, graceActive });
+    const resolvedGracePhase = gracePhase ?? (graceActive ? 'purpleGrace' : null);
+    const phase = this.getTrayPhase({ score, placements, blooms, gracePhase: resolvedGracePhase });
     const weights = this.getPieceSizeWeights({ phase, emptyCells });
     const critical = Number.isFinite(emptyCells) && emptyCells <= difficulty.criticalEmptyCellThreshold;
     const minSmallPieces = critical || phase === 'early' ? 2 : 1;
@@ -250,11 +275,12 @@ export class PieceGenerator {
     };
   }
 
-  getTrayPhase({ score = 0, placements = 0, blooms = 0, graceActive = false } = {}) {
+  getTrayPhase({ score = 0, placements = 0, blooms = 0, graceActive = false, gracePhase = null } = {}) {
     const difficulty = this.getDifficultyConfig();
+    const resolvedGracePhase = gracePhase ?? (graceActive ? 'purpleGrace' : null);
 
-    if (graceActive) {
-      return 'purpleGrace';
+    if (resolvedGracePhase) {
+      return resolvedGracePhase;
     }
 
     if (
@@ -299,6 +325,11 @@ export class PieceGenerator {
         duo: difficulty.purpleGraceDuoWeight,
         triple: difficulty.purpleGraceTripleWeight
       },
+      orangeGrace: {
+        single: difficulty.orangeGraceSingleWeight,
+        duo: difficulty.orangeGraceDuoWeight,
+        triple: difficulty.orangeGraceTripleWeight
+      },
       late: {
         single: difficulty.lateMinSingleWeight,
         duo: difficulty.lateMinDuoWeight,
@@ -321,15 +352,16 @@ export class PieceGenerator {
     return profile.weights[getVariantSizeClass(variant)] ?? 0;
   }
 
-  pickColor(activeColors, { graceActive = false } = {}) {
-    const difficulty = this.getDifficultyConfig();
+  pickColor(activeColors, { graceActive = false, gracePhase = null, colorBudget = null } = {}) {
+    const activeGracePhase = gracePhase ?? (graceActive ? 'purpleGrace' : null);
+    const newColor = this.getGraceNewColor(activeColors, activeGracePhase);
 
-    if (graceActive && activeColors.length >= 5) {
-      const newColorChance = clamp01(difficulty.graceNewColorChance);
-      const newColor = activeColors[4];
-      const baseColors = activeColors.slice(0, 4);
+    if (newColor) {
+      const newColorChance = this.getGraceNewColorChance(activeGracePhase);
+      const baseColors = activeColors.filter((color) => color !== newColor);
+      const canUseNewColor = !colorBudget || colorBudget.newColorPieces < colorBudget.maxNewColorPieces;
 
-      if (this.random() < newColorChance) {
+      if (canUseNewColor && this.random() < newColorChance) {
         return newColor;
       }
 
@@ -339,7 +371,71 @@ export class PieceGenerator {
     return activeColors[Math.floor(this.random() * activeColors.length)];
   }
 
-  updateFifthColorGrace(activeColors) {
+  createGraceColorBudget(activeColors, gracePhase) {
+    const graceColor = this.getGraceNewColor(activeColors, gracePhase);
+
+    if (!graceColor) {
+      return null;
+    }
+
+    return {
+      graceColor,
+      maxNewColorPieces: this.getGraceMaxNewColorPieces(gracePhase),
+      newColorPieces: 0
+    };
+  }
+
+  registerGraceNewColorUse(cells, colorBudget) {
+    if (!colorBudget) {
+      return;
+    }
+
+    if (cells.some((cell) => cell.color === colorBudget.graceColor)) {
+      colorBudget.newColorPieces += 1;
+    }
+  }
+
+  getGraceNewColor(activeColors, gracePhase) {
+    if (gracePhase === 'orangeGrace' && activeColors.length >= 6) {
+      return activeColors[5];
+    }
+
+    if (gracePhase === 'purpleGrace' && activeColors.length >= 5) {
+      return activeColors[4];
+    }
+
+    return null;
+  }
+
+  getGraceNewColorChance(gracePhase) {
+    const difficulty = this.getDifficultyConfig();
+
+    if (gracePhase === 'orangeGrace') {
+      return clamp01(difficulty.orangeGraceNewColorChance ?? difficulty.graceNewColorChance);
+    }
+
+    if (gracePhase === 'purpleGrace') {
+      return clamp01(difficulty.purpleGraceNewColorChance ?? difficulty.graceNewColorChance);
+    }
+
+    return 1;
+  }
+
+  getGraceMaxNewColorPieces(gracePhase) {
+    const difficulty = this.getDifficultyConfig();
+
+    if (gracePhase === 'orangeGrace') {
+      return Math.max(0, difficulty.orangeGraceMaxNewColorPieces ?? 2);
+    }
+
+    if (gracePhase === 'purpleGrace') {
+      return Math.max(0, difficulty.purpleGraceMaxNewColorPieces ?? 2);
+    }
+
+    return 3;
+  }
+
+  updateColorGrace(activeColors) {
     if (activeColors.length < 5) {
       return false;
     }
@@ -349,7 +445,18 @@ export class PieceGenerator {
       this.fifthColorGraceRemaining = Math.max(0, this.getDifficultyConfig().purpleGraceTrayCount);
     }
 
-    return this.fifthColorGraceRemaining > 0;
+    if (activeColors.length >= 6) {
+      this.fifthColorGraceRemaining = 0;
+
+      if (!this.sixthColorUnlocked) {
+        this.sixthColorUnlocked = true;
+        this.sixthColorGraceRemaining = Math.max(0, this.getDifficultyConfig().orangeGraceTrayCount);
+      }
+
+      return this.sixthColorGraceRemaining > 0 ? 'orangeGrace' : false;
+    }
+
+    return this.fifthColorGraceRemaining > 0 ? 'purpleGrace' : false;
   }
 
   snapshot() {
@@ -357,6 +464,8 @@ export class PieceGenerator {
       pieceCounter: this.pieceCounter,
       fifthColorUnlocked: this.fifthColorUnlocked,
       fifthColorGraceRemaining: this.fifthColorGraceRemaining,
+      sixthColorUnlocked: this.sixthColorUnlocked,
+      sixthColorGraceRemaining: this.sixthColorGraceRemaining,
       trayRefillCount: this.trayRefillCount
     };
   }
@@ -365,6 +474,8 @@ export class PieceGenerator {
     this.pieceCounter = snapshot.pieceCounter ?? this.pieceCounter;
     this.fifthColorUnlocked = snapshot.fifthColorUnlocked ?? this.fifthColorUnlocked;
     this.fifthColorGraceRemaining = snapshot.fifthColorGraceRemaining ?? this.fifthColorGraceRemaining;
+    this.sixthColorUnlocked = snapshot.sixthColorUnlocked ?? this.sixthColorUnlocked;
+    this.sixthColorGraceRemaining = snapshot.sixthColorGraceRemaining ?? this.sixthColorGraceRemaining;
     this.trayRefillCount = snapshot.trayRefillCount ?? this.trayRefillCount;
   }
 }

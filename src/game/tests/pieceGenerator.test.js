@@ -5,10 +5,11 @@ import { PieceGenerator } from '../core/PieceGenerator.js';
 
 const TUNED_DIFFICULTY = {
   startColors: 4,
-  addFifthColorAtScore: 3000,
-  addFifthColorAfterBlooms: 8,
-  addSixthColorAtScore: 999999,
-  addSixthColorAfterBlooms: 999999,
+  addFifthColorAtScore: 2200,
+  addFifthColorAfterBlooms: 5,
+  addSixthColorAtScore: 6500,
+  addSixthColorAfterBlooms: 18,
+  maxActiveColors: 6,
   earlyTrayCount: 6,
   earlyScoreLimit: 800,
   earlyBloomLimit: 3,
@@ -25,15 +26,23 @@ const TUNED_DIFFICULTY = {
   midSingleWeight: 25,
   midDuoWeight: 45,
   midTripleWeight: 30,
-  lateMinSingleWeight: 20,
-  lateMinDuoWeight: 35,
-  lateMaxTripleWeight: 45,
+  lateMinSingleWeight: 24,
+  lateMinDuoWeight: 40,
+  lateMaxTripleWeight: 36,
   purpleGraceTrayCount: 6,
   purpleGraceSingleWeight: 35,
   purpleGraceDuoWeight: 45,
   purpleGraceTripleWeight: 20,
+  orangeGraceTrayCount: 8,
+  orangeGraceSingleWeight: 38,
+  orangeGraceDuoWeight: 44,
+  orangeGraceTripleWeight: 18,
   graceSameColorBias: 0.58,
   graceNewColorChance: 0.18,
+  purpleGraceNewColorChance: 0.18,
+  orangeGraceNewColorChance: 0.14,
+  purpleGraceMaxNewColorPieces: 2,
+  orangeGraceMaxNewColorPieces: 2,
   crowdedEmptyCellThreshold: 10,
   criticalEmptyCellThreshold: 7,
   crowdedSingleBoost: 10,
@@ -55,15 +64,28 @@ test('starts with 4 colors and unlocks the fifth color only after score and bloo
   const generator = createGenerator({ random: () => 0.99 });
 
   assert.deepEqual(generator.getActiveColors({ score: 0, blooms: 0 }), ['red', 'blue', 'yellow', 'green']);
-  assert.deepEqual(generator.getActiveColors({ score: 2999, blooms: 8 }), ['red', 'blue', 'yellow', 'green']);
-  assert.deepEqual(generator.getActiveColors({ score: 3000, blooms: 7 }), ['red', 'blue', 'yellow', 'green']);
-  assert.deepEqual(generator.getActiveColors({ score: 3000, blooms: 8 }), ['red', 'blue', 'yellow', 'green', 'purple']);
+  assert.deepEqual(generator.getActiveColors({ score: 2199, blooms: 5 }), ['red', 'blue', 'yellow', 'green']);
+  assert.deepEqual(generator.getActiveColors({ score: 2200, blooms: 4 }), ['red', 'blue', 'yellow', 'green']);
+  assert.deepEqual(generator.getActiveColors({ score: 2200, blooms: 5 }), ['red', 'blue', 'yellow', 'green', 'purple']);
 });
 
-test('keeps the sixth color out of normal MVP progression', () => {
+test('unlocks the sixth color only in late MVP progression', () => {
   const generator = createGenerator({ random: () => 0.99 });
 
-  assert.deepEqual(generator.getActiveColors({ score: 50000, blooms: 100 }), ['red', 'blue', 'yellow', 'green', 'purple']);
+  assert.deepEqual(generator.getActiveColors({ score: 6499, blooms: 18 }), ['red', 'blue', 'yellow', 'green', 'purple']);
+  assert.deepEqual(generator.getActiveColors({ score: 6500, blooms: 17 }), ['red', 'blue', 'yellow', 'green', 'purple']);
+  assert.deepEqual(generator.getActiveColors({ score: 6500, blooms: 18 }), ['red', 'blue', 'yellow', 'green', 'purple', 'orange']);
+});
+
+test('caps active color progression at six colors', () => {
+  const generator = createGenerator({
+    random: () => 0.99,
+    difficulty: {
+      startColors: 7,
+      maxActiveColors: 6
+    }
+  });
+
   assert.deepEqual(generator.getActiveColors({ score: 999999, blooms: 999999 }), ['red', 'blue', 'yellow', 'green', 'purple', 'orange']);
 });
 
@@ -106,9 +128,9 @@ test('late trays keep minimum single and duo weights and cap triple weight', () 
   const profile = generator.getTrayProfile({ score: 8000, placements: 60, blooms: 20, emptyCells: 20 });
 
   assert.equal(profile.phase, 'late');
-  assert.equal(profile.weights.single, 20);
-  assert.equal(profile.weights.duo, 35);
-  assert.equal(profile.weights.triple, 45);
+  assert.equal(profile.weights.single, 24);
+  assert.equal(profile.weights.duo, 40);
+  assert.equal(profile.weights.triple, 36);
   assert.equal(profile.minSmallPieces, 1);
 });
 
@@ -145,7 +167,7 @@ test('purple unlock grace uses easier weights and reduces triple rate', () => {
   const generator = createGenerator({ random: () => 0.5 });
   generator.trayRefillCount = 20;
 
-  const grace = generator.getTrayProfile({ score: 4000, placements: 40, blooms: 9, emptyCells: 20, graceActive: true });
+  const grace = generator.getTrayProfile({ score: 4000, placements: 40, blooms: 9, emptyCells: 20, gracePhase: 'purpleGrace' });
   const mid = generator.getTrayProfile({ score: 4000, placements: 40, blooms: 9, emptyCells: 20, graceActive: false });
 
   assert.equal(grace.phase, 'purpleGrace');
@@ -153,6 +175,20 @@ test('purple unlock grace uses easier weights and reduces triple rate', () => {
   assert.equal(grace.weights.duo, 45);
   assert.equal(grace.weights.triple, 20);
   assert.ok(grace.weights.triple < mid.weights.triple);
+});
+
+test('orange unlock grace uses easier weights and reduces triple rate', () => {
+  const generator = createGenerator({ random: () => 0.5 });
+  generator.trayRefillCount = 24;
+
+  const grace = generator.getTrayProfile({ score: 7000, placements: 70, blooms: 20, emptyCells: 20, gracePhase: 'orangeGrace' });
+  const late = generator.getTrayProfile({ score: 7000, placements: 70, blooms: 20, emptyCells: 20, graceActive: false });
+
+  assert.equal(grace.phase, 'orangeGrace');
+  assert.equal(grace.weights.single, 38);
+  assert.equal(grace.weights.duo, 44);
+  assert.equal(grace.weights.triple, 18);
+  assert.ok(grace.weights.triple < late.weights.triple);
 });
 
 test('starts a short small-piece grace period when the fifth color unlocks', () => {
@@ -167,12 +203,72 @@ test('starts a short small-piece grace period when the fifth color unlocks', () 
   assert.equal(generator.fifthColorUnlocked, false);
   assert.equal(generator.fifthColorGraceRemaining, 0);
 
-  generator.generateTray({ score: 3000, placements: 8, blooms: 8, emptyCells: 28 });
+  generator.generateTray({ score: 2200, placements: 8, blooms: 5, emptyCells: 28 });
   assert.equal(generator.fifthColorUnlocked, true);
   assert.equal(generator.fifthColorGraceRemaining, 1);
 
-  generator.generateTray({ score: 3200, placements: 9, blooms: 9, emptyCells: 25 });
+  generator.generateTray({ score: 2400, placements: 9, blooms: 6, emptyCells: 25 });
   assert.equal(generator.fifthColorGraceRemaining, 0);
+});
+
+test('starts an orange grace period when the sixth color unlocks', () => {
+  const generator = createGenerator({
+    random: () => 0,
+    difficulty: {
+      orangeGraceTrayCount: 2
+    }
+  });
+
+  generator.generateTray({ score: 2200, placements: 20, blooms: 5, emptyCells: 28 });
+  assert.equal(generator.sixthColorUnlocked, false);
+  assert.equal(generator.sixthColorGraceRemaining, 0);
+
+  generator.generateTray({ score: 6500, placements: 50, blooms: 18, emptyCells: 24 });
+  assert.equal(generator.sixthColorUnlocked, true);
+  assert.equal(generator.sixthColorGraceRemaining, 1);
+
+  generator.generateTray({ score: 6900, placements: 52, blooms: 19, emptyCells: 22 });
+  assert.equal(generator.sixthColorGraceRemaining, 0);
+});
+
+test('orange grace limits new color flooding across a tray', () => {
+  const generator = createGenerator({
+    random: () => 0,
+    difficulty: {
+      orangeGraceMaxNewColorPieces: 2
+    }
+  });
+
+  generator.trayRefillCount = 24;
+  const tray = generator.generateTray({ score: 6500, placements: 50, blooms: 18, emptyCells: 24 });
+  const orangePieces = tray.filter((piece) => piece.cells.some((cell) => cell.color === 'orange')).length;
+
+  assert.ok(orangePieces <= 2);
+});
+
+test('purple grace limits new color flooding across a tray', () => {
+  const generator = createGenerator({
+    random: () => 0,
+    difficulty: {
+      purpleGraceMaxNewColorPieces: 2
+    }
+  });
+
+  generator.trayRefillCount = 18;
+  const tray = generator.generateTray({ score: 2200, placements: 30, blooms: 5, emptyCells: 26 });
+  const purplePieces = tray.filter((piece) => piece.cells.some((cell) => cell.color === 'purple')).length;
+
+  assert.ok(purplePieces <= 2);
+});
+
+test('generated trays never use a seventh color', () => {
+  const generator = createGenerator({ random: () => 0.99 });
+  generator.trayRefillCount = 30;
+  const tray = generator.generateTray({ score: 50000, placements: 200, blooms: 80, emptyCells: 20 });
+  const colors = new Set(tray.flatMap((piece) => piece.cells.map((cell) => cell.color)));
+
+  assert.ok(colors.size <= 6);
+  assert.ok([...colors].every((color) => ['red', 'blue', 'yellow', 'green', 'purple', 'orange'].includes(color)));
 });
 
 function createGenerator({ random = Math.random, difficulty = {} } = {}) {
