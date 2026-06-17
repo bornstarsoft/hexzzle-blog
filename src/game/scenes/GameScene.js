@@ -64,7 +64,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreModel = new ScoreModel(this.configData.score);
     this.boardView = new HoneycombBoardView(this);
     this.trayView = new TrayView(this);
-    this.tray = this.generator.generateTray({ score: 0, placements: 0 });
+    this.tray = this.generator.generateTray({ score: 0, placements: 0, blooms: 0 });
     this.selectionState = createTraySelectionState();
     this.dragState = null;
     this.previewState = null;
@@ -303,7 +303,8 @@ export class GameScene extends Phaser.Scene {
     if (!this.hasTrayPieces()) {
       this.tray = this.generator.generateTray({
         score: this.scoreModel.score,
-        placements: this.placements
+        placements: this.placements,
+        blooms: this.scoreModel.totalBlooms
       });
     }
 
@@ -338,6 +339,7 @@ export class GameScene extends Phaser.Scene {
 
     this.board.restore(this.undoSnapshot.board);
     this.tray = cloneTray(this.undoSnapshot.tray);
+    this.generator.restore(this.undoSnapshot.generator);
     this.selectionState = createTraySelectionState({
       activePieceIndex: this.undoSnapshot.activePieceIndex
     });
@@ -358,7 +360,7 @@ export class GameScene extends Phaser.Scene {
     this.board = new HexBoardModel(3);
     this.scoreModel = new ScoreModel(this.configData.score);
     this.generator = new PieceGenerator({ config: this.configData });
-    this.tray = this.generator.generateTray({ score: 0, placements: 0 });
+    this.tray = this.generator.generateTray({ score: 0, placements: 0, blooms: 0 });
     this.selectionState = createTraySelectionState();
     this.clearDragState();
     this.previewState = null;
@@ -386,6 +388,7 @@ export class GameScene extends Phaser.Scene {
     return {
       board: this.board.snapshot(),
       tray: cloneTray(this.tray),
+      generator: this.generator.snapshot(),
       activePieceIndex: this.selectionState.activePieceIndex,
       placements: this.placements,
       score: this.scoreModel.snapshot()

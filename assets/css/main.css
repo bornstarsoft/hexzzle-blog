@@ -78,6 +78,10 @@ a {
   text-decoration: none;
 }
 
+.brand-text--short {
+  display: none;
+}
+
 .brand-mark {
   width: 30px;
   aspect-ratio: 1;
@@ -607,6 +611,16 @@ a {
 
   .site-footer nav {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-text--full {
+    display: none;
+  }
+
+  .brand-text--short {
+    display: inline;
   }
 }
 

@@ -9,8 +9,14 @@
   },
   "difficulty": {
     "startColors": 4,
-    "addFifthColorAtScore": 1200,
-    "addSixthColorAtScore": 3500
+    "addFifthColorAtScore": 3000,
+    "addFifthColorAfterBlooms": 8,
+    "addSixthColorAtScore": 999999,
+    "addSixthColorAfterBlooms": 999999,
+    "fifthColorGraceTrayRefills": 6,
+    "graceSmallPieceBias": 0.65,
+    "graceSameColorBias": 0.58,
+    "graceNewColorChance": 0.18
   },
   "gameFeel": {
     "bloomAnimationMs": 350,
