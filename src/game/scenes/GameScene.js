@@ -24,9 +24,9 @@ import { ScoreModel } from '../core/ScoreModel.js';
 import { StorageService } from '../core/StorageService.js';
 import {
   clearActivePieceAfterPlacement,
+  clearActivePieceAfterInvalidPlacement,
   createTraySelectionState,
   getActiveTrayPiece,
-  keepActivePieceAfterInvalidPlacement,
   selectTrayPiece,
   useActiveTrayPiece
 } from '../core/TraySelectionState.js';
@@ -64,7 +64,12 @@ export class GameScene extends Phaser.Scene {
     this.scoreModel = new ScoreModel(this.configData.score);
     this.boardView = new HoneycombBoardView(this);
     this.trayView = new TrayView(this);
-    this.tray = this.generator.generateTray({ score: 0, placements: 0, blooms: 0 });
+    this.tray = this.generator.generateTray({
+      score: 0,
+      placements: 0,
+      blooms: 0,
+      emptyCells: this.board.getEmptyCellCount()
+    });
     this.selectionState = createTraySelectionState();
     this.dragState = null;
     this.previewState = null;
@@ -141,7 +146,15 @@ export class GameScene extends Phaser.Scene {
 
     const coord = this.getNearestBoardAnchor(pointer, { tolerance: this.getTouchTolerance() });
     if (!coord) {
-      this.emitStatus('Tap closer to the Honeycomb Board.');
+      const piece = getActiveTrayPiece(this.selectionState, this.tray);
+      if (piece) {
+        this.selectionState = clearActivePieceAfterInvalidPlacement(this.selectionState);
+        this.clearPlacementPreview();
+        this.emitStatus('Not there. Choose another piece or open space.');
+        this.redraw();
+      } else {
+        this.emitStatus('Tap closer to the Honeycomb Board.');
+      }
       return;
     }
 
@@ -179,14 +192,14 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
+    this.selectionState = clearActivePieceAfterInvalidPlacement(this.selectionState);
     this.clearPlacementPreview();
     this.boardView.showInvalid(
       preview?.previewAnchor ?? this.hoverCoord,
       state.piece,
       this.configData.gameFeel?.invalidFeedbackMs ?? 180
     );
-    this.emitStatus('Not there. Try an open honeycomb space.');
+    this.emitStatus('Not there. Choose another piece or open space.');
     this.playTone(180, 0.04);
     this.animateGhostBackToTray(state);
   }
@@ -263,8 +276,8 @@ export class GameScene extends Phaser.Scene {
     if (!preview.valid) {
       this.clearPlacementPreview();
       this.boardView.showInvalid(preview.previewAnchor ?? preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
-      this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
-      this.emitStatus('Not there. Try an open honeycomb space.');
+      this.selectionState = clearActivePieceAfterInvalidPlacement(this.selectionState);
+      this.emitStatus('Not there. Choose another piece or open space.');
       this.playTone(180, 0.04);
       this.redraw();
       return;
@@ -304,7 +317,8 @@ export class GameScene extends Phaser.Scene {
       this.tray = this.generator.generateTray({
         score: this.scoreModel.score,
         placements: this.placements,
-        blooms: this.scoreModel.totalBlooms
+        blooms: this.scoreModel.totalBlooms,
+        emptyCells: this.board.getEmptyCellCount()
       });
     }
 
@@ -360,7 +374,12 @@ export class GameScene extends Phaser.Scene {
     this.board = new HexBoardModel(3);
     this.scoreModel = new ScoreModel(this.configData.score);
     this.generator = new PieceGenerator({ config: this.configData });
-    this.tray = this.generator.generateTray({ score: 0, placements: 0, blooms: 0 });
+    this.tray = this.generator.generateTray({
+      score: 0,
+      placements: 0,
+      blooms: 0,
+      emptyCells: this.board.getEmptyCellCount()
+    });
     this.selectionState = createTraySelectionState();
     this.clearDragState();
     this.previewState = null;
@@ -601,8 +620,8 @@ export class GameScene extends Phaser.Scene {
 
   handlePointerCancel() {
     if (this.dragState && !this.dragState.returning) {
-      this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
-      this.emitStatus(`Piece ${this.dragState.slotIndex + 1} selected. Tap the board.`);
+      this.selectionState = clearActivePieceAfterInvalidPlacement(this.selectionState);
+      this.emitStatus('Not there. Choose another piece or open space.');
       this.animateGhostBackToTray(this.dragState);
       return;
     }

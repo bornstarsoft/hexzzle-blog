@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   clearActivePieceAfterPlacement,
+  clearActivePieceAfterInvalidPlacement,
   createTraySelectionState,
   getActiveTrayPiece,
-  keepActivePieceAfterInvalidPlacement,
   selectTrayPiece,
   useActiveTrayPiece
 } from '../core/TraySelectionState.js';
@@ -45,9 +45,16 @@ test('successful placement clears active selection without auto-selecting the ne
   assert.equal(cleared.activePieceIndex, null);
 });
 
-test('invalid placement keeps the same selected piece active', () => {
+test('invalid placement clears active selection without using the tray slot', () => {
   const state = { activePieceIndex: 1 };
-  const nextState = keepActivePieceAfterInvalidPlacement(state);
+  const nextState = clearActivePieceAfterInvalidPlacement(state);
 
-  assert.deepEqual(nextState, state);
+  assert.equal(nextState.activePieceIndex, null);
+  assert.equal(tray[1].id, 'single-blue');
+});
+
+test('after invalid placement the board cannot place the old piece until it is selected again', () => {
+  const invalid = clearActivePieceAfterInvalidPlacement({ activePieceIndex: 0 });
+
+  assert.equal(getActiveTrayPiece(invalid, tray), null);
 });

@@ -70,6 +70,12 @@ export class HexBoardModel {
     ));
   }
 
+  getEmptyCellCount() {
+    return this.coordinates.reduce((count, coord) => (
+      this.getCell(coord) === null ? count + 1 : count
+    ), 0);
+  }
+
   snapshot() {
     return {
       radius: this.radius,

@@ -42,8 +42,11 @@ export function clearActivePieceAfterPlacement(state) {
   };
 }
 
-export function keepActivePieceAfterInvalidPlacement(state) {
-  return { ...state };
+export function clearActivePieceAfterInvalidPlacement(state) {
+  return {
+    ...state,
+    activePieceIndex: null
+  };
 }
 
 function hasTrayPiece(tray, index) {

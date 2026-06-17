@@ -31,6 +31,15 @@ test('detects whether any tray piece can fit on the board', () => {
   assert.equal(board.hasAnyFit([single]), false);
 });
 
+test('counts empty cells for board-pressure generation', () => {
+  const board = new HexBoardModel(3);
+
+  assert.equal(board.getEmptyCellCount(), 37);
+  board.setCell({ q: 0, r: 0 }, 'red');
+  board.setCell({ q: 1, r: -1 }, 'blue');
+  assert.equal(board.getEmptyCellCount(), 35);
+});
+
 test('snapshot and restore include occupied cells', () => {
   const board = new HexBoardModel(3);
   board.setCell({ q: 0, r: 0 }, 'orange');
