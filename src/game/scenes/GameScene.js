@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { BloomResolver } from '../core/BloomResolver.js';
 import {
   createDragGhostState,
+  getGhostAnchorPoint,
   updateDragGhostCenter
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
@@ -209,6 +210,8 @@ export class GameScene extends Phaser.Scene {
     const tracker = createDragGhostState({
       pointer,
       pieceIndex: index,
+      piece,
+      boardCellSize: this.getGhostPieceSize(),
       offset: this.getDragOffset()
     });
     this.dragState = {
@@ -218,16 +221,18 @@ export class GameScene extends Phaser.Scene {
       returnOrigin: this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
       pointerPoint: tracker.pointerPoint,
       pointerOffset: tracker.pointerOffset,
+      anchorLocalOffset: tracker.anchorLocalOffset,
+      ghostAnchorPoint: tracker.ghostAnchorPoint,
       ghostPosition: tracker.ghostPosition,
       ghostCenter: tracker.ghostPosition,
-      ghostSize: this.getGhostPieceSize(),
+      ghostSize: tracker.boardCellSize,
       ghost: null,
       moved: false,
       returning: false,
       startPoint: { x: pointer.x, y: pointer.y }
     };
     this.createDragGhost(this.dragState);
-    this.renderDragDebug(pointer, this.dragState.ghostPosition);
+    this.renderDragDebug(pointer, this.dragState.ghostPosition, null, this.dragState);
     this.previewState = null;
     this.hoverCoord = null;
     this.emitStatus(`Piece ${index + 1} selected.`);
@@ -430,28 +435,25 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const tracker = updateDragGhostCenter({
-      pointerId: state.pointerId,
-      pointerOffset: state.pointerOffset,
-      ghostPosition: state.ghostPosition
-    }, { pointer });
+    const tracker = updateDragGhostCenter(state, { pointer });
     state.pointerPoint = tracker.pointerPoint;
     state.ghostPosition = tracker.ghostPosition;
     state.ghostCenter = tracker.ghostPosition;
+    state.ghostAnchorPoint = tracker.ghostAnchorPoint;
     this.drawDragGhost(state, state.ghostPosition);
 
     const distance = Math.hypot(pointer.x - state.startPoint.x, pointer.y - state.startPoint.y);
     if (!state.moved && distance < DRAG_MOVE_THRESHOLD) {
-      this.renderDragDebug(pointer, state.ghostPosition);
+      this.renderDragDebug(pointer, state.ghostPosition, null, state);
       return;
     }
 
     state.moved = true;
-    const anchor = this.getNearestBoardAnchor(pointer, { tolerance: this.getPreviewTolerance() });
+    const anchor = this.getNearestBoardAnchor(state.ghostAnchorPoint, { tolerance: this.getPreviewTolerance() });
     this.previewState = this.resolvePreview(state.piece, anchor);
     this.hoverCoord = this.previewState.previewAnchor;
     this.warnIfPreviewDiverged(this.previewState);
-    this.renderDragDebug(pointer, state.ghostPosition, this.previewState);
+    this.renderDragDebug(pointer, state.ghostPosition, this.previewState, state);
 
     if (this.previewState.valid) {
       this.emitStatus('Release to place.');
@@ -472,7 +474,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   getGhostPieceSize() {
-    return this.scale.width < 520 ? 24 : 28;
+    this.boardView.updateLayout();
+    return this.boardView.layout.hexSize;
   }
 
   createDragGhost(state) {
@@ -495,6 +498,7 @@ export class GameScene extends Phaser.Scene {
 
     state.ghostPosition = { x: center.x, y: center.y };
     state.ghostCenter = state.ghostPosition;
+    state.ghostAnchorPoint = getGhostAnchorPoint(state.ghostPosition, state.anchorLocalOffset);
     state.ghost.clear();
     drawPieceOnGraphics(state.ghost, state.piece, center.x, center.y, state.ghostSize, 0.9);
   }
@@ -575,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  renderDragDebug(pointer, ghostCenter, preview = null) {
+  renderDragDebug(pointer, ghostCenter, preview = null, dragState = null) {
     if (!this.debugDragEnabled || !this.dragDebugGraphics || !this.dragDebugText || !pointer || !ghostCenter) {
       return;
     }
@@ -591,6 +595,10 @@ export class GameScene extends Phaser.Scene {
     this.dragDebugGraphics.fillCircle(pointer.x, pointer.y, 5);
     this.dragDebugGraphics.fillStyle(0x2f80ed, 0.95);
     this.dragDebugGraphics.fillCircle(ghostCenter.x, ghostCenter.y, 5);
+    if (dragState?.ghostAnchorPoint) {
+      this.dragDebugGraphics.fillStyle(0x8f65d9, 0.95);
+      this.dragDebugGraphics.fillCircle(dragState.ghostAnchorPoint.x, dragState.ghostAnchorPoint.y, 5);
+    }
     if (preview?.localAnchor) {
       const localPoint = this.boardView.toScreen(preview.localAnchor);
       this.dragDebugGraphics.fillStyle(0xf2c94c, 0.95);
@@ -609,13 +617,19 @@ export class GameScene extends Phaser.Scene {
     const anchorLabel = preview?.localAnchor && preview?.previewAnchor
       ? `anchors ${isSameCoord(preview.localAnchor, preview.previewAnchor) ? 'same' : 'diverged'}`
       : 'anchors none';
+    const ghostAnchorLabel = dragState?.ghostAnchorPoint
+      ? `ghost anchor ${Math.round(dragState.ghostAnchorPoint.x)},${Math.round(dragState.ghostAnchorPoint.y)}`
+      : 'ghost anchor none';
     this.dragDebugText.setText(
-      `ghost dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}\n${previewLabel} | ${anchorLabel}`
+      `ghost dx ${Math.round(dx)} dy ${Math.round(dy)} d ${Math.round(distance)}\n${ghostAnchorLabel}\n${previewLabel} | ${anchorLabel}`
     );
 
     const sample = {
       pointer: { x: Math.round(pointer.x), y: Math.round(pointer.y) },
       ghostCenter: { x: Math.round(ghostCenter.x), y: Math.round(ghostCenter.y) },
+      ghostAnchorPoint: dragState?.ghostAnchorPoint
+        ? { x: Math.round(dragState.ghostAnchorPoint.x), y: Math.round(dragState.ghostAnchorPoint.y) }
+        : null,
       dx: Math.round(dx),
       dy: Math.round(dy),
       distance: Math.round(distance),

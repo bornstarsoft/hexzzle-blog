@@ -3,15 +3,28 @@ import assert from 'node:assert/strict';
 
 import {
   createDragGhostState,
+  getGhostAnchorPoint,
+  getPieceAnchorLocalOffset,
+  getPieceCellLocalOffsets,
   updateDragGhostCenter
 } from '../core/DragGhostTracker.js';
+
+const duoLinePiece = {
+  cells: [
+    { dq: 0, dr: 0, color: 'red' },
+    { dq: 1, dr: 0, color: 'red' }
+  ]
+};
 
 test('creates the drag ghost from pointer coordinates instead of tray or board coordinates', () => {
   const state = createDragGhostState({
     pointer: { id: 9, x: 120, y: 600 },
     pieceIndex: 2,
+    piece: duoLinePiece,
+    boardCellSize: 32,
     offset: { x: 0, y: -32 },
     trayOrigin: { x: 320, y: 700 },
+    trayCellSize: 18,
     previewAnchor: { q: 0, r: 0 }
   });
 
@@ -21,12 +34,19 @@ test('creates the drag ghost from pointer coordinates instead of tray or board c
   assert.deepEqual(state.pointerOffset, { x: 0, y: -32 });
   assert.deepEqual(state.ghostPosition, { x: 120, y: 568 });
   assert.deepEqual(state.ghostCenter, { x: 120, y: 568 });
+  assert.equal(state.boardCellSize, 32);
+  assert.notEqual(state.anchorLocalOffset.x, 0);
+  assert.equal(state.anchorLocalOffset.y, 0);
+  assert.equal(Math.round(state.ghostAnchorPoint.x), 92);
+  assert.equal(Math.round(state.ghostAnchorPoint.y), 568);
 });
 
 test('updates the drag ghost from current pointer coordinates only', () => {
   const state = createDragGhostState({
     pointer: { id: 9, x: 120, y: 600 },
     pieceIndex: 0,
+    piece: duoLinePiece,
+    boardCellSize: 32,
     offset: { x: 0, y: -32 }
   });
 
@@ -39,4 +59,34 @@ test('updates the drag ghost from current pointer coordinates only', () => {
   assert.deepEqual(next.pointerPoint, { x: 250, y: 430 });
   assert.deepEqual(next.ghostPosition, { x: 250, y: 398 });
   assert.deepEqual(next.ghostCenter, { x: 250, y: 398 });
+  assert.equal(Math.round(next.ghostAnchorPoint.x), 222);
+  assert.equal(Math.round(next.ghostAnchorPoint.y), 398);
+});
+
+test('computes piece anchor local offset from board scale, not tray scale', () => {
+  const boardScaleOffset = getPieceAnchorLocalOffset(duoLinePiece, 32);
+  const trayScaleOffset = getPieceAnchorLocalOffset(duoLinePiece, 18);
+
+  assert.equal(Math.round(boardScaleOffset.x), -28);
+  assert.equal(boardScaleOffset.y, 0);
+  assert.equal(Math.round(trayScaleOffset.x), -16);
+  assert.notEqual(Math.round(boardScaleOffset.x), Math.round(trayScaleOffset.x));
+});
+
+test('drag ghost board-scale anchor maps from ghost center plus anchor offset', () => {
+  const offset = getPieceAnchorLocalOffset(duoLinePiece, 32);
+  const anchorPoint = getGhostAnchorPoint({ x: 180, y: 220 }, offset);
+
+  assert.equal(Math.round(anchorPoint.x), 152);
+  assert.equal(anchorPoint.y, 220);
+});
+
+test('piece cell local offsets use the same centered board geometry as the ghost drawing', () => {
+  const offsets = getPieceCellLocalOffsets(duoLinePiece, 32);
+
+  assert.equal(offsets.length, 2);
+  assert.equal(Math.round(offsets[0].x), -28);
+  assert.equal(Math.round(offsets[1].x), 28);
+  assert.equal(offsets[0].y, 0);
+  assert.equal(offsets[1].y, 0);
 });
