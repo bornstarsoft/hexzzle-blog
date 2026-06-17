@@ -6,7 +6,7 @@ import {
   getCenteredPieceAnchorPoint,
   getPieceCellCentersForCenteredPiece
 } from '../core/PieceVisualGeometry.js';
-import { getPieceDuplicateBadges } from '../core/BloomStackResolver.js';
+import { getPieceStackPointMarkers } from '../core/BloomStackResolver.js';
 import { drawHex } from './HoneycombBoardView.js';
 
 const COLOR_MAP = {
@@ -25,12 +25,12 @@ export class TrayView {
     this.hitAreas = [];
     this.slotCenters = [];
     this.lastPieceSize = 0;
-    this.badgeGroup = scene.add.group();
+    this.markerGroup = scene.add.group();
   }
 
   render({ tray, selectedIndex }) {
     this.graphics.clear();
-    this.badgeGroup.clear(true, true);
+    this.markerGroup.clear(true, true);
     this.hitAreas = [];
 
     const width = this.scene.scale.width;
@@ -54,7 +54,6 @@ export class TrayView {
 
       if (piece) {
         this.drawPiece(piece, this.slotCenters[index].x, this.slotCenters[index].y, pieceSize);
-        this.drawBadges(piece, x, layout.y, layout.pieceWidth);
       } else {
         this.graphics.fillStyle(0xd8e4dc, 0.34);
         this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 8);
@@ -63,7 +62,9 @@ export class TrayView {
   }
 
   drawPiece(piece, centerX, centerY, size) {
-    getPieceCellCentersForCenteredPiece({ x: centerX, y: centerY }, piece, size).forEach((cell) => {
+    const centers = getPieceCellCentersForCenteredPiece({ x: centerX, y: centerY }, piece, size);
+
+    centers.forEach((cell) => {
       drawHex(this.graphics, cell.x, cell.y, size, {
         fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
         alpha: 0.94,
@@ -71,25 +72,32 @@ export class TrayView {
         lineAlpha: 0.9
       });
     });
+
+    this.drawStackPointMarkers(piece, centers, size);
   }
 
-  drawBadges(piece, slotX, slotY, slotWidth) {
-    getPieceDuplicateBadges(piece).forEach((badge, index) => {
+  drawStackPointMarkers(piece, centers, size) {
+    getPieceStackPointMarkers(piece).forEach((marker) => {
+      const center = centers.find((cell) => cell.index === marker.index);
+      if (!center) {
+        return;
+      }
+
       const text = this.scene.add.text(
-        slotX + slotWidth - 12,
-        slotY + 11 + index * 22,
-        badge.label,
+        center.x + size * 0.32,
+        center.y - size * 0.34,
+        marker.label,
         {
           fontFamily: 'Inter, Arial, sans-serif',
-          fontSize: '13px',
+          fontSize: `${Math.round(Math.max(14, size * 0.62))}px`,
           fontStyle: '800',
-          color: '#17352e',
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          padding: { x: 6, y: 3 }
+          color: '#ffffff',
+          stroke: '#17352e',
+          strokeThickness: Math.max(2, Math.round(size * 0.11))
         }
-      ).setOrigin(1, 0).setDepth(12);
+      ).setOrigin(0.5).setDepth(13);
 
-      this.badgeGroup.add(text);
+      this.markerGroup.add(text);
     });
   }
 

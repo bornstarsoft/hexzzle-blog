@@ -44,6 +44,8 @@ const COLOR_MAP = {
 
 const DRAG_MOVE_THRESHOLD = 8;
 const DRAG_DEBUG_PARAM = 'debugDrag';
+const DEFAULT_STACK_GATHER_MS = 320;
+const DEFAULT_STACK_SETTLE_MS = 140;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -92,6 +94,7 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.inputLockedUntil = 0;
     this.hoverCoord = null;
+    this.resolutionAnimationToken = 0;
     this.statusMessage = 'Tap a piece, then stack matching colors.';
 
     this.input.on('pointermove', this.handlePointerMove, this);
@@ -289,28 +292,11 @@ export class GameScene extends Phaser.Scene {
     this.board.placePiece(piece, anchor);
     this.placements += 1;
     const placePoints = this.scoreModel.addPlacement(piece.cells.length);
-    const bloomResult = this.resolver.resolve(this.board, {
+    const bloomResult = this.resolver.plan(this.board, {
       placedCells: placedTargets,
       anchor
     });
     const stackPoints = this.scoreModel.addBloomResult(bloomResult);
-    this.redraw();
-    this.boardView.showScorePop(anchor, `+${placePoints + stackPoints}`);
-    this.playTone(440, 0.05);
-
-    if (bloomResult.groupsCleared > 0) {
-      this.boardView.showBloom(bloomResult);
-      this.lockInputFor(this.configData.gameFeel?.bloomAnimationMs ?? 480);
-      this.playTone(660, 0.08);
-      this.emitStatus(createBloomMessage(bloomResult));
-    } else if (bloomResult.merges.length > 0) {
-      this.boardView.showMerge(bloomResult);
-      this.lockInputFor(this.configData.gameFeel?.mergeAnimationMs ?? 240);
-      this.emitStatus(createMergeMessage(bloomResult));
-    } else {
-      this.emitStatus('Stack started.');
-    }
-
     const used = useActiveTrayPiece({
       tray: this.tray,
       activePieceIndex: this.selectionState.activePieceIndex
@@ -329,9 +315,79 @@ export class GameScene extends Phaser.Scene {
       });
     }
 
+    this.redraw();
+    this.boardView.showScorePop(anchor, `+${placePoints + stackPoints}`);
+    this.playTone(440, 0.05);
+    this.emitStats();
+
+    if (bloomResult.gatherPlans.length > 0) {
+      this.playStackResolutionAnimation(bloomResult);
+      return;
+    }
+
+    this.resolver.apply(this.board, bloomResult);
+    this.emitStatus('Stack started.');
     this.checkGameOver();
     this.redraw();
     this.emitStats();
+  }
+
+  playStackResolutionAnimation(bloomResult) {
+    const animationToken = this.resolutionAnimationToken + 1;
+    this.resolutionAnimationToken = animationToken;
+    const gatherMs = this.getStackGatherAnimationMs();
+    const settleMs = this.getStackSettleMs(bloomResult);
+    const bloomMs = bloomResult.groupsCleared > 0
+      ? this.configData.gameFeel?.bloomAnimationMs ?? 480
+      : 0;
+
+    this.lockInputFor(gatherMs + settleMs + bloomMs);
+    this.emitStatus(bloomResult.groupsCleared > 0
+      ? 'Stack reaches 6. Bloom!'
+      : 'Same colors gather into one stack.');
+
+    this.boardView.showGather(bloomResult, {
+      duration: gatherMs,
+      settleDelay: settleMs,
+      onComplete: () => {
+        if (animationToken !== this.resolutionAnimationToken) {
+          return;
+        }
+
+        this.resolver.apply(this.board, bloomResult);
+        this.redraw();
+
+        if (bloomResult.groupsCleared > 0) {
+          this.boardView.showBloom(bloomResult);
+          this.playTone(660, 0.08);
+          this.emitStatus(createBloomMessage(bloomResult));
+          this.time.delayedCall(bloomMs, () => {
+            if (animationToken !== this.resolutionAnimationToken) {
+              return;
+            }
+
+            this.checkGameOver();
+            this.emitStats();
+          });
+          return;
+        }
+
+        this.emitStatus(createMergeMessage(bloomResult));
+        this.checkGameOver();
+        this.emitStats();
+      }
+    });
+  }
+
+  getStackGatherAnimationMs() {
+    return Math.min(380, Math.max(220, this.configData.gameFeel?.stackGatherAnimationMs ?? DEFAULT_STACK_GATHER_MS));
+  }
+
+  getStackSettleMs(result) {
+    const configured = this.configData.gameFeel?.stackSettleMs ?? DEFAULT_STACK_SETTLE_MS;
+    return result.groupsCleared > 0
+      ? Math.min(220, Math.max(120, configured))
+      : Math.min(160, Math.max(70, configured));
   }
 
   checkGameOver() {
@@ -372,6 +428,7 @@ export class GameScene extends Phaser.Scene {
     this.undoSnapshot = null;
     this.isGameOver = false;
     this.inputLockedUntil = 0;
+    this.resolutionAnimationToken += 1;
     this.emitStatus('Move undone.');
     this.redraw();
     this.emitStats();
@@ -395,6 +452,7 @@ export class GameScene extends Phaser.Scene {
     this.isGameOver = false;
     this.inputLockedUntil = 0;
     this.hoverCoord = null;
+    this.resolutionAnimationToken += 1;
     this.emitStatus('New game started. Stack matching colors. Reach 6.');
     this.redraw();
     this.emitStats();

@@ -107,5 +107,8 @@ test('final placement targets use the same canonical axial offsets as preview', 
     q: boardAnchor.q + offset.dq,
     r: boardAnchor.r + offset.dr
   })));
-  assert.deepEqual(targets[0], { q: 0, r: 0, color: 'blue' });
+  assert.deepEqual(
+    (({ q, r, color }) => ({ q, r, color }))(targets[0]),
+    { q: 0, r: 0, color: 'blue' }
+  );
 });

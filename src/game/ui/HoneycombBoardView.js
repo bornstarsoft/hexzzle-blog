@@ -195,7 +195,149 @@ export class HoneycombBoardView {
     });
   }
 
+  showGather(result, { duration = 320, settleDelay = 120, onComplete = () => {} } = {}) {
+    const plans = result.gatherPlans ?? [];
+    if (plans.length === 0) {
+      onComplete();
+      return;
+    }
+
+    const overlays = [];
+    let maxDelay = 0;
+
+    plans.forEach((plan, planIndex) => {
+      const targetPoint = this.toScreen(plan.targetCell);
+      const color = COLOR_MAP[plan.color] ?? 0xf2c94c;
+      const target = this.scene.add.container(targetPoint.x, targetPoint.y).setDepth(68).setAlpha(0).setScale(0.84);
+      const targetHex = this.scene.add.graphics();
+      drawHex(targetHex, 0, 0, this.layout.hexSize * 1.04, {
+        fill: color,
+        alpha: 0.72,
+        line: 0xffffff,
+        lineAlpha: 0.95
+      });
+      const targetLabel = this.scene.add.text(0, 0, String(plan.totalCount), {
+        fontFamily: 'Inter, Arial, sans-serif',
+        fontSize: `${Math.round(Math.max(16, this.layout.hexSize * 0.64))}px`,
+        fontStyle: '800',
+        color: '#17352e',
+        stroke: '#ffffff',
+        strokeThickness: Math.max(2, Math.round(this.layout.hexSize * 0.08))
+      }).setOrigin(0.5);
+
+      target.add([targetHex, targetLabel]);
+      overlays.push(target);
+
+      this.scene.tweens.add({
+        targets: target,
+        alpha: 1,
+        scaleX: 1.08,
+        scaleY: 1.08,
+        duration: Math.min(180, duration * 0.55),
+        delay: Math.min(80, planIndex * 28 + duration * 0.56),
+        ease: 'Back.easeOut'
+      });
+
+      plan.sourceCells.forEach((source, sourceIndex) => {
+        const sourcePoint = this.toScreen(source);
+        const isTarget = isSameCoord(source, plan.targetCell);
+        const delay = Math.min(150, planIndex * 35 + sourceIndex * 28);
+        maxDelay = Math.max(maxDelay, delay);
+
+        if (isTarget) {
+          this.drawTargetReceivePulse(targetPoint, color, delay, duration, overlays);
+          return;
+        }
+
+        const cover = this.scene.add.graphics().setDepth(61);
+        drawHex(cover, sourcePoint.x, sourcePoint.y, this.layout.hexSize * 1.02, {
+          fill: 0xf7fbf8,
+          alpha: 0.86,
+          line: 0xd8e4dc,
+          lineAlpha: 0.92
+        });
+        overlays.push(cover);
+
+        const traveller = this.createTravellingStackTile(sourcePoint, color, source.count);
+        overlays.push(traveller);
+        this.scene.tweens.add({
+          targets: traveller,
+          x: targetPoint.x,
+          y: targetPoint.y,
+          angle: sourceIndex % 2 === 0 ? 15 : -15,
+          scaleX: 0.48,
+          scaleY: 0.48,
+          alpha: 0.18,
+          duration,
+          delay,
+          ease: 'Cubic.easeInOut',
+          onComplete: () => traveller.destroy()
+        });
+      });
+    });
+
+    this.scene.time.delayedCall(duration + settleDelay + maxDelay, () => {
+      overlays.forEach((overlay) => {
+        if (overlay?.active) {
+          overlay.destroy();
+        }
+      });
+      onComplete();
+    });
+  }
+
   showMerge(result) {
+    this.showGather(result);
+  }
+
+  createTravellingStackTile(point, color, count) {
+    const tile = this.scene.add.container(point.x, point.y).setDepth(69).setScale(0.98);
+    const hex = this.scene.add.graphics();
+    drawHex(hex, 0, 0, this.layout.hexSize * 1.02, {
+      fill: color,
+      alpha: 0.94,
+      line: 0xffffff,
+      lineAlpha: 0.95
+    });
+    tile.add(hex);
+
+    if (count > 1) {
+      tile.add(this.scene.add.text(0, 0, String(count), {
+        fontFamily: 'Inter, Arial, sans-serif',
+        fontSize: `${Math.round(Math.max(13, this.layout.hexSize * 0.5))}px`,
+        fontStyle: '800',
+        color: '#17352e',
+        stroke: '#ffffff',
+        strokeThickness: 2
+      }).setOrigin(0.5));
+    }
+
+    return tile;
+  }
+
+  drawTargetReceivePulse(point, color, delay, duration, overlays) {
+    const pulse = this.scene.add.container(point.x, point.y).setDepth(67).setAlpha(0.5);
+    const hex = this.scene.add.graphics();
+    drawHex(hex, 0, 0, this.layout.hexSize * 1.06, {
+      fill: color,
+      alpha: 0.2,
+      line: 0xffffff,
+      lineAlpha: 0.92
+    });
+    pulse.add(hex);
+    overlays.push(pulse);
+    this.scene.tweens.add({
+      targets: pulse,
+      alpha: 0,
+      scaleX: 1.22,
+      scaleY: 1.22,
+      duration: Math.min(260, duration),
+      delay,
+      ease: 'Sine.easeOut'
+    });
+  }
+
+  showLegacyMergePulse(result) {
     result.merges.forEach((merge) => {
       const point = this.toScreen(merge.target);
       const pulse = this.scene.add.container(point.x, point.y).setDepth(63);
@@ -376,6 +518,10 @@ function createBloomLabel(result) {
   }
 
   return 'Bloom!';
+}
+
+function isSameCoord(a, b) {
+  return Boolean(a && b && a.q === b.q && a.r === b.r);
 }
 
 export function drawHex(graphics, x, y, size, { fill, alpha = 1, line, lineAlpha = 1 }) {

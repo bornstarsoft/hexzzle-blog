@@ -7,51 +7,69 @@ export class BloomStackResolver {
     this.threshold = threshold;
   }
 
-  resolve(board, { placedCells = [], anchor = null } = {}) {
-    const plans = getBloomStackPlans(board, {
+  plan(board, { placedCells = [], anchor = null } = {}) {
+    return createBloomStackResolution(board, {
       placedCells,
       anchor,
       threshold: this.threshold
     });
-    const merges = [];
-    const blooms = [];
-
-    plans.forEach((plan) => {
-      if (plan.action === 'bloom') {
-        plan.cells.forEach((coord) => board.clearCell(coord));
-        blooms.push(plan);
-        return;
-      }
-
-      if (plan.cells.length <= 1 && plan.totalCount <= 1) {
-        return;
-      }
-
-      board.setCell(plan.target, {
-        color: plan.color,
-        count: plan.totalCount
-      });
-      plan.cells.forEach((coord) => {
-        if (!isSameCoord(coord, plan.target)) {
-          board.clearCell(coord);
-        }
-      });
-      merges.push(plan);
-    });
-
-    const longestGroup = Math.max(0, ...plans.map((plan) => plan.totalCount));
-
-    return {
-      plans,
-      merges,
-      blooms,
-      scans: blooms.length > 0 ? [blooms] : [],
-      totalCleared: blooms.reduce((sum, bloom) => sum + bloom.totalCount, 0),
-      groupsCleared: blooms.length,
-      longestGroup,
-      chainCount: blooms.length > 0 ? 1 : 0
-    };
   }
+
+  apply(board, resolution) {
+    applyBloomStackResolution(board, resolution);
+    return resolution;
+  }
+
+  resolve(board, { placedCells = [], anchor = null } = {}) {
+    return this.apply(board, this.plan(board, { placedCells, anchor }));
+  }
+}
+
+export function createBloomStackResolution(board, { placedCells = [], anchor = null, threshold = DEFAULT_THRESHOLD } = {}) {
+  const plans = getBloomStackPlans(board, {
+    placedCells,
+    anchor,
+    threshold
+  });
+  const merges = plans.filter((plan) => plan.action === 'merge' && (plan.cells.length > 1 || plan.totalCount > 1));
+  const blooms = plans.filter((plan) => plan.action === 'bloom');
+  const gatherPlans = plans.filter((plan) => plan.sourceCells.length > 1 || plan.totalCount > 1);
+  const longestGroup = Math.max(0, ...plans.map((plan) => plan.totalCount));
+
+  return {
+    plans,
+    gatherPlans,
+    merges,
+    blooms,
+    scans: blooms.length > 0 ? [blooms] : [],
+    totalCleared: blooms.reduce((sum, bloom) => sum + bloom.totalCount, 0),
+    groupsCleared: blooms.length,
+    longestGroup,
+    chainCount: blooms.length > 0 ? 1 : 0
+  };
+}
+
+export function applyBloomStackResolution(board, resolution) {
+  resolution.plans.forEach((plan) => {
+    if (plan.action === 'bloom') {
+      plan.cells.forEach((coord) => board.clearCell(coord));
+      return;
+    }
+
+    if (plan.cells.length <= 1 && plan.totalCount <= 1) {
+      return;
+    }
+
+    board.setCell(plan.target, {
+      color: plan.color,
+      count: plan.totalCount
+    });
+    plan.cells.forEach((coord) => {
+      if (!isSameCoord(coord, plan.target)) {
+        board.clearCell(coord);
+      }
+    });
+  });
 }
 
 export function getBloomStackPlans(board, { placedCells = [], anchor = null, threshold = DEFAULT_THRESHOLD } = {}) {
@@ -78,14 +96,25 @@ export function getBloomStackPlans(board, { placedCells = [], anchor = null, thr
       anchor
     }));
     const totalCount = component.cells.reduce((sum, coord) => sum + getCellCount(board, coord, placedByKey), 0);
+    const sourceCells = orderSourceCells(component.cells, target, board, placedByKey).map((coord) => ({
+      ...stripCoord(coord),
+      color: placedCell.color,
+      count: getCellCount(board, coord, placedByKey),
+      placed: placedByKey.has(axialKey(coord)),
+      stackPoint: Boolean(placedByKey.get(axialKey(coord))?.stackPoint)
+    }));
 
     plans.push({
       action: totalCount >= threshold ? 'bloom' : 'merge',
       color: placedCell.color,
       cells: component.cells,
       target,
+      targetCell: target,
+      sourceCells,
+      sourceCounts: sourceCells.map((cell) => cell.count),
       totalCount,
       threshold,
+      willBloom: totalCount >= threshold,
       placedCells: component.cells.filter((coord) => placedByKey.has(axialKey(coord))),
       hint: totalCount >= threshold ? 'Bloom!' : `${totalCount}/${threshold}`
     });
@@ -94,11 +123,15 @@ export function getBloomStackPlans(board, { placedCells = [], anchor = null, thr
   return plans;
 }
 
-export function getPieceDuplicateBadges(piece) {
+export function getPieceStackPointMarkers(piece) {
   const counts = new Map();
+  const firstIndexByColor = new Map();
 
-  piece?.cells?.forEach((cell) => {
+  piece?.cells?.forEach((cell, index) => {
     counts.set(cell.color, (counts.get(cell.color) ?? 0) + 1);
+    if (!firstIndexByColor.has(cell.color)) {
+      firstIndexByColor.set(cell.color, index);
+    }
   });
 
   return Array.from(counts.entries())
@@ -107,7 +140,8 @@ export function getPieceDuplicateBadges(piece) {
     .map(([color, count]) => ({
       color,
       count,
-      label: `\u00d7${count}`
+      index: firstIndexByColor.get(color),
+      label: '+'
     }));
 }
 
@@ -115,6 +149,16 @@ export function chooseMergeTarget(cells, { board, placedCells = [], placedByKey 
   const placedInComponent = placedCells.filter((placedCell) => (
     cells.some((coord) => isSameCoord(coord, placedCell))
   ));
+  const stackPointInComponent = placedInComponent.filter((placedCell) => placedCell.stackPoint);
+
+  if (stackPointInComponent.length > 0) {
+    return stackPointInComponent
+      .slice()
+      .sort((a, b) => {
+        const distanceDelta = axialDistance(a, anchor) - axialDistance(b, anchor);
+        return distanceDelta || a.index - b.index;
+      })[0];
+  }
 
   if (placedInComponent.length > 0) {
     return placedInComponent
@@ -171,6 +215,19 @@ function getCellCount(board, coord, placedByKey) {
 
 function getComponentKey(cells) {
   return cells.map((cell) => axialKey(cell)).sort().join('|');
+}
+
+function orderSourceCells(cells, target, board, placedByKey) {
+  return cells
+    .slice()
+    .sort((a, b) => {
+      const targetDelta = Number(!isSameCoord(a, target)) - Number(!isSameCoord(b, target));
+      const stackDelta = Number(!placedByKey.get(axialKey(a))?.stackPoint) - Number(!placedByKey.get(axialKey(b))?.stackPoint);
+      const placedDelta = Number(!placedByKey.has(axialKey(a))) - Number(!placedByKey.has(axialKey(b)));
+      const countDelta = getCellCount(board, b, placedByKey) - getCellCount(board, a, placedByKey);
+
+      return targetDelta || stackDelta || placedDelta || countDelta || axialKey(a).localeCompare(axialKey(b));
+    });
 }
 
 function axialDistance(a, b) {

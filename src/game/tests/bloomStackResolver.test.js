@@ -5,7 +5,7 @@ import {
   BloomStackResolver,
   chooseMergeTarget,
   getBloomStackPlans,
-  getPieceDuplicateBadges
+  getPieceStackPointMarkers
 } from '../core/BloomStackResolver.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
 
@@ -80,6 +80,28 @@ test('total count 6 blooms and clears', () => {
   assert.equal(board.getCell({ q: 1, r: 0 }), null);
 });
 
+test('total count 6 still exposes gather data before Bloom clear', () => {
+  const board = new HexBoardModel(3);
+  board.setCell({ q: 0, r: 0 }, { color: 'yellow', count: 5 });
+  const placedCells = [{ q: 1, r: 0, color: 'yellow' }];
+  board.setCell(placedCells[0], { color: 'yellow', count: 1 });
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: 1, r: 0 } });
+
+  assert.equal(result.gatherPlans.length, 1);
+  assert.deepEqual(result.gatherPlans[0].targetCell, { q: 1, r: 0 });
+  assert.equal(result.gatherPlans[0].willBloom, true);
+  assert.equal(result.gatherPlans[0].totalCount, 6);
+  assert.deepEqual(
+    result.gatherPlans[0].sourceCells.map((cell) => ({ q: cell.q, r: cell.r, count: cell.count })),
+    [
+      { q: 1, r: 0, count: 1 },
+      { q: 0, r: 0, count: 5 }
+    ]
+  );
+  assert.equal(board.getCell({ q: 1, r: 0 }), null);
+});
+
 test('total count 8 blooms and records extra stack size', () => {
   const board = new HexBoardModel(3);
   board.setCell({ q: 0, r: 0 }, { color: 'orange', count: 5 });
@@ -150,6 +172,47 @@ test('same-color cells inside one placed piece merge', () => {
   assert.equal(board.getCell({ q: 2, r: 0 }), null);
 });
 
+test('same-color duplicated piece exposes source cells and target cell for gather animation', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'blue' },
+      { dq: 1, dr: 0, color: 'blue' },
+      { dq: 2, dr: 0, color: 'blue' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: 0, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: 'blue', count: 1 }));
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: 0, r: 0 } });
+
+  assert.equal(result.gatherPlans.length, 1);
+  assert.equal(result.gatherPlans[0].willBloom, false);
+  assert.deepEqual(result.gatherPlans[0].targetCell, { q: 0, r: 0 });
+  assert.deepEqual(
+    result.gatherPlans[0].sourceCounts,
+    [1, 1, 1]
+  );
+  assert.equal(board.getCellCount({ q: 0, r: 0 }), 3);
+});
+
+test('deterministic merge target prefers placed stack-point cell for duplicated color', () => {
+  const board = new HexBoardModel(3);
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'red' },
+      { dq: 2, dr: 0, color: 'blue' },
+      { dq: 1, dr: 0, color: 'blue' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: 0, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: cell.color, count: 1 }));
+
+  const result = new BloomStackResolver().resolve(board, { placedCells, anchor: { q: 0, r: 0 } });
+
+  assert.deepEqual(result.gatherPlans[0].targetCell, { q: 2, r: 0 });
+});
+
 test('stack resolver only affects components touched by placement', () => {
   const board = new HexBoardModel(3);
   board.setCell({ q: -3, r: 1 }, { color: 'red', count: 2 });
@@ -183,32 +246,44 @@ test('preview plans expose 5/6 and Bloom hints', () => {
   assert.equal(bloom[0].hint, 'Bloom!');
 });
 
-test('tray duplicate badge data returns x2 and x3 only when relevant', () => {
-  const badges = getPieceDuplicateBadges({
+test('tray stack point marker data returns one plus per duplicated color', () => {
+  const markers = getPieceStackPointMarkers({
     cells: [
       { color: 'blue' },
       { color: 'blue' },
       { color: 'red' }
     ]
   });
-  const noBadges = getPieceDuplicateBadges({
+  const noMarkers = getPieceStackPointMarkers({
     cells: [
       { color: 'red' },
       { color: 'blue' },
       { color: 'green' }
     ]
   });
-  const tripleBadge = getPieceDuplicateBadges({
+  const tripleMarker = getPieceStackPointMarkers({
     cells: [
       { color: 'purple' },
       { color: 'purple' },
       { color: 'purple' }
     ]
   });
+  const mixedMarkers = getPieceStackPointMarkers({
+    cells: [
+      { color: 'red' },
+      { color: 'blue' },
+      { color: 'red' },
+      { color: 'blue' }
+    ]
+  });
 
-  assert.deepEqual(badges, [{ color: 'blue', count: 2, label: '\u00d72' }]);
-  assert.deepEqual(noBadges, []);
-  assert.deepEqual(tripleBadge, [{ color: 'purple', count: 3, label: '\u00d73' }]);
+  assert.deepEqual(markers, [{ color: 'blue', count: 2, index: 0, label: '+' }]);
+  assert.deepEqual(noMarkers, []);
+  assert.deepEqual(tripleMarker, [{ color: 'purple', count: 3, index: 0, label: '+' }]);
+  assert.deepEqual(mixedMarkers, [
+    { color: 'red', count: 2, index: 0, label: '+' },
+    { color: 'blue', count: 2, index: 1, label: '+' }
+  ]);
 });
 
 function stripExtra(coord) {

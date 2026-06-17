@@ -1,4 +1,5 @@
 import { HEX_DIRECTIONS, axialAdd, axialKey, getHexesInRadius } from './HexCoordinates.js';
+import { getPieceStackPointMarkers } from './BloomStackResolver.js';
 import { getPieceAxialOffsetsFromAnchor } from './PieceVisualGeometry.js';
 
 export class HexBoardModel {
@@ -41,10 +42,14 @@ export class HexBoardModel {
   }
 
   getTargets(piece, anchor) {
+    const stackPointIndexes = new Set(getPieceStackPointMarkers(piece).map((marker) => marker.index));
+
     return getPieceAxialOffsetsFromAnchor(piece).map((offset) => ({
       q: anchor.q + offset.dq,
       r: anchor.r + offset.dr,
-      color: offset.color
+      color: offset.color,
+      pieceCellIndex: offset.index,
+      stackPoint: stackPointIndexes.has(offset.index)
     }));
   }
 

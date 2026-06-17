@@ -12,7 +12,8 @@
 - [ ] Disconnected same-color stacks do not merge.
 - [ ] Stack larger than 6 blooms and gives extra score.
 - [ ] Multiple affected colors can resolve from one placement.
-- [ ] Tray duplicate badges show x2/x3 only when relevant.
+- [ ] Tray duplicate pieces show one `+` stack-point marker per duplicated color.
+- [ ] Same-color duplicated pieces gather into the marked stack point before the count settles.
 - [ ] Valid preview shows stack hints such as 5/6 or Bloom!
 - [ ] Invalid preview does not show stack hints.
 - [ ] Score updates.

@@ -48,6 +48,8 @@
     "allowAllTripleTrays": false
   },
   "gameFeel": {
+    "stackGatherAnimationMs": 320,
+    "stackSettleMs": 140,
     "bloomAnimationMs": 350,
     "placeAnimationMs": 120,
     "invalidFeedbackMs": 180
