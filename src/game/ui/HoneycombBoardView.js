@@ -1,4 +1,11 @@
 import { axialToPixel, pixelToAxial } from '../core/HexCoordinates.js';
+import {
+  getBoardTopReserve,
+  getBoardTrayReserve,
+  getHexVisualSize,
+  getInvalidFeedbackHexSize,
+  getPreviewHexSize
+} from '../core/HexVisualLayout.js';
 
 const COLOR_MAP = {
   red: 0xef5a5a,
@@ -51,12 +58,9 @@ export class HoneycombBoardView {
   updateLayout() {
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const topReserve = width < 520 ? 48 : 58;
-    const trayReserve = width < 520 ? 132 : 150;
-    const hexSize = Math.max(
-      21,
-      Math.min(36, width / 12.4, (height - topReserve - trayReserve) / 10)
-    );
+    const topReserve = getBoardTopReserve(width);
+    const trayReserve = getBoardTrayReserve(width);
+    const hexSize = getHexVisualSize({ width, height });
 
     this.layout = {
       centerX: width / 2,
@@ -130,6 +134,7 @@ export class HoneycombBoardView {
   drawPreview(piece, anchor, isValid, targets = []) {
     const fill = isValid ? 0x18756b : 0xef5a5a;
     const line = isValid ? 0x0f5b55 : 0x9b3131;
+    const previewHexSize = getPreviewHexSize(this.layout.hexSize);
     const targetByOffset = new Map(targets.map((target) => [
       `${target.q},${target.r}`,
       target
@@ -143,17 +148,12 @@ export class HoneycombBoardView {
       const target = targetByOffset.get(`${coord.q},${coord.r}`);
       const point = this.toScreen(coord);
       const targetBlocked = target?.blocked || target?.exists === false;
-      drawHex(this.overlay, point.x, point.y, this.layout.hexSize * 0.92, {
+      drawHex(this.overlay, point.x, point.y, previewHexSize, {
         fill,
         alpha: isValid ? 0.3 : targetBlocked ? 0.36 : 0.28,
         line: targetBlocked ? 0x7f1d1d : line,
         lineAlpha: isValid ? 0.95 : 1
       });
-
-      if (!isValid && targetBlocked) {
-        this.overlay.lineStyle(Math.max(2, this.layout.hexSize * 0.08), 0xef5a5a, 0.88);
-        this.overlay.strokeCircle(point.x, point.y, this.layout.hexSize * 0.38);
-      }
     });
   }
 
@@ -169,7 +169,7 @@ export class HoneycombBoardView {
         q: anchor.q + cell.dq,
         r: anchor.r + cell.dr
       });
-      drawHex(flash, point.x, point.y, this.layout.hexSize * 0.95, {
+      drawHex(flash, point.x, point.y, getInvalidFeedbackHexSize(this.layout.hexSize), {
         fill: 0xef5a5a,
         alpha: 0.32,
         line: 0xef5a5a,

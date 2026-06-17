@@ -1,4 +1,9 @@
 import { axialToPixel } from '../core/HexCoordinates.js';
+import {
+  getHexVisualSize,
+  getTrayLayout,
+  getTrayPieceHexSize
+} from '../core/HexVisualLayout.js';
 import { drawHex } from './HoneycombBoardView.js';
 
 const COLOR_MAP = {
@@ -25,27 +30,22 @@ export class TrayView {
 
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const gap = width < 460 ? 8 : 14;
-    const totalWidth = Math.min(width - 28, 520);
-    const pieceWidth = (totalWidth - gap * 2) / 3;
-    const pieceHeight = width < 460 ? 88 : 108;
-    const bottomOffset = width < 460 ? 96 : width < 700 ? 86 : width < 900 ? 122 : 62;
-    const startX = (width - totalWidth) / 2;
-    const y = height - pieceHeight - bottomOffset;
-    const pieceSize = width < 460 ? 19 : 22;
+    const hexSize = getHexVisualSize({ width, height });
+    const layout = getTrayLayout({ width, height, hexSize });
+    const pieceSize = getTrayPieceHexSize(hexSize);
 
     for (let index = 0; index < 3; index += 1) {
-      const x = startX + index * (pieceWidth + gap);
+      const x = layout.startX + index * (layout.pieceWidth + layout.gap);
       const piece = tray[index];
       const selected = index === selectedIndex;
 
-      this.hitAreas[index] = { x, y, width: pieceWidth, height: pieceHeight };
-      this.slotCenters[index] = { x: x + pieceWidth / 2, y: y + pieceHeight / 2 };
+      this.hitAreas[index] = { x, y: layout.y, width: layout.pieceWidth, height: layout.pieceHeight };
+      this.slotCenters[index] = { x: x + layout.pieceWidth / 2, y: layout.y + layout.pieceHeight / 2 };
       this.lastPieceSize = pieceSize;
       this.graphics.fillStyle(selected && piece ? 0xdff5ea : 0xffffff, piece ? 0.96 : 0.48);
       this.graphics.lineStyle(selected && piece ? 3 : 1.5, selected && piece ? 0x18756b : 0xd8e4dc, piece ? 1 : 0.7);
-      this.graphics.fillRoundedRect(x, y, pieceWidth, pieceHeight, 8);
-      this.graphics.strokeRoundedRect(x, y, pieceWidth, pieceHeight, 8);
+      this.graphics.fillRoundedRect(x, layout.y, layout.pieceWidth, layout.pieceHeight, 8);
+      this.graphics.strokeRoundedRect(x, layout.y, layout.pieceWidth, layout.pieceHeight, 8);
 
       if (piece) {
         this.drawPiece(piece, this.slotCenters[index].x, this.slotCenters[index].y, pieceSize);

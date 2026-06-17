@@ -24,7 +24,7 @@ test('creates the drag ghost from pointer coordinates instead of tray or board c
     boardCellSize: 32,
     offset: { x: 0, y: -32 },
     trayOrigin: { x: 320, y: 700 },
-    trayCellSize: 18,
+    legacyCellSize: 18,
     previewAnchor: { q: 0, r: 0 }
   });
 
@@ -65,12 +65,12 @@ test('updates the drag ghost from current pointer coordinates only', () => {
 
 test('computes piece anchor local offset from board scale, not tray scale', () => {
   const boardScaleOffset = getPieceAnchorLocalOffset(duoLinePiece, 32);
-  const trayScaleOffset = getPieceAnchorLocalOffset(duoLinePiece, 18);
+  const smallerVisualOffset = getPieceAnchorLocalOffset(duoLinePiece, 18);
 
   assert.equal(Math.round(boardScaleOffset.x), -28);
   assert.equal(boardScaleOffset.y, 0);
-  assert.equal(Math.round(trayScaleOffset.x), -16);
-  assert.notEqual(Math.round(boardScaleOffset.x), Math.round(trayScaleOffset.x));
+  assert.equal(Math.round(smallerVisualOffset.x), -16);
+  assert.notEqual(Math.round(boardScaleOffset.x), Math.round(smallerVisualOffset.x));
 });
 
 test('drag ghost board-scale anchor maps from ghost center plus anchor offset', () => {

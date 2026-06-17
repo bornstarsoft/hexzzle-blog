@@ -495,9 +495,18 @@ a {
 }
 
 @media (max-width: 620px) {
+  .hero,
+  .page-section,
+  .page-section--narrow {
+    width: 100%;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
   .site-header {
     align-items: center;
     gap: 6px;
+    width: calc(100% - 20px);
     min-height: 0;
     padding: 4px 0;
   }

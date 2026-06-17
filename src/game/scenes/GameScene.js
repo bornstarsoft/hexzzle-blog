@@ -8,6 +8,7 @@ import {
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import { axialToPixel } from '../core/HexCoordinates.js';
+import { getGhostHexSize } from '../core/HexVisualLayout.js';
 import {
   resolveLocalPlacementDrop,
   resolveLocalPlacementPreview
@@ -475,7 +476,7 @@ export class GameScene extends Phaser.Scene {
 
   getGhostPieceSize() {
     this.boardView.updateLayout();
-    return this.boardView.layout.hexSize;
+    return getGhostHexSize(this.boardView.layout.hexSize);
   }
 
   createDragGhost(state) {
