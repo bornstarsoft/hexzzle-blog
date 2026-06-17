@@ -1,18 +1,84 @@
 const MIN_HEX_VISUAL_SIZE = 20;
 const MAX_HEX_VISUAL_SIZE = 36;
+const BOARD_RADIUS = 3;
+const BOARD_HALF_HEIGHT_FACTOR = BOARD_RADIUS * 1.5 + 1;
+const BOARD_HALF_WIDTH_FACTOR = Math.sqrt(3) * (BOARD_RADIUS + 0.5);
 const MAX_TRAY_PIECE_LINE_WIDTH_FACTOR = 3 * Math.sqrt(3);
 
 export function getHexVisualSize({ width, height }) {
   const safeWidth = Math.max(320, width || 0);
   const safeHeight = Math.max(500, height || 0);
-  const topReserve = getBoardTopReserve(safeWidth);
-  const trayReserve = getBoardTrayReserve(safeWidth);
-  const boardWidthLimit = safeWidth / 12.4;
-  const boardHeightLimit = (safeHeight - topReserve - trayReserve) / 10;
+  const boardWidthLimit = (safeWidth - 12) / (BOARD_HALF_WIDTH_FACTOR * 2);
   const trayWidthLimit = getTrayPieceCapacity(safeWidth);
-  const size = Math.min(MAX_HEX_VISUAL_SIZE, boardWidthLimit, boardHeightLimit, trayWidthLimit);
+  let size = Math.min(MAX_HEX_VISUAL_SIZE, boardWidthLimit, trayWidthLimit);
+
+  for (let pass = 0; pass < 5; pass += 1) {
+    const tray = getTrayLayout({ width: safeWidth, height: safeHeight, hexSize: size });
+    const availableBoardHeight = tray.y - getBoardTopReserve(safeWidth) - getBoardTrayGap(safeWidth);
+    const boardHeightLimit = availableBoardHeight / (BOARD_HALF_HEIGHT_FACTOR * 2);
+    size = Math.min(size, boardHeightLimit);
+  }
 
   return Math.max(MIN_HEX_VISUAL_SIZE, size);
+}
+
+export function getGameVisualLayout({ width, height }) {
+  const safeWidth = Math.max(320, width || 0);
+  const safeHeight = Math.max(500, height || 0);
+  const hexSize = getHexVisualSize({ width: safeWidth, height: safeHeight });
+  const tray = getTrayLayout({ width: safeWidth, height: safeHeight, hexSize });
+  const board = getBoardLayout({ width: safeWidth, height: safeHeight, hexSize, tray });
+
+  return {
+    width: safeWidth,
+    height: safeHeight,
+    hexSize,
+    board,
+    tray,
+    boardTrayGap: getBoardTrayGap(safeWidth)
+  };
+}
+
+export function getBoardLayout({ width, height, hexSize, tray = null }) {
+  const safeWidth = Math.max(320, width || 0);
+  const safeHeight = Math.max(500, height || 0);
+  const resolvedTray = tray ?? getTrayLayout({ width: safeWidth, height: safeHeight, hexSize });
+  const top = getBoardTopReserve(safeWidth);
+  const bottom = resolvedTray.y - getBoardTrayGap(safeWidth);
+  const halfHeight = getBoardHalfHeight(hexSize);
+  const minCenterY = top + halfHeight;
+  const maxCenterY = bottom - halfHeight;
+  const centeredY = top + (bottom - top) / 2;
+  const centerY = clamp(centeredY, minCenterY, Math.max(minCenterY, maxCenterY));
+
+  return {
+    centerX: safeWidth / 2,
+    centerY,
+    hexSize,
+    top,
+    bottom
+  };
+}
+
+export function getBoardBounds(boardLayout) {
+  const halfWidth = getBoardHalfWidth(boardLayout.hexSize);
+  const halfHeight = getBoardHalfHeight(boardLayout.hexSize);
+
+  return {
+    left: boardLayout.centerX - halfWidth,
+    right: boardLayout.centerX + halfWidth,
+    top: boardLayout.centerY - halfHeight,
+    bottom: boardLayout.centerY + halfHeight
+  };
+}
+
+export function getTrayBounds(trayLayout) {
+  return {
+    left: trayLayout.startX,
+    right: trayLayout.startX + trayLayout.totalWidth,
+    top: trayLayout.y,
+    bottom: trayLayout.y + trayLayout.pieceHeight
+  };
 }
 
 export function getBoardTopReserve(width) {
@@ -29,6 +95,10 @@ export function getBoardTrayReserve(width) {
   }
 
   return 170;
+}
+
+export function getBoardTrayGap(width) {
+  return width < 520 ? 14 : 18;
 }
 
 export function getTrayLayout({ width, height, hexSize }) {
@@ -76,6 +146,18 @@ export function getMaxTrayPieceVisualWidth(hexSize) {
   return MAX_TRAY_PIECE_LINE_WIDTH_FACTOR * hexSize;
 }
 
+export function shouldShowOpenAnchorHints({ selectedPiece, isDragging, debugDragEnabled }) {
+  return Boolean(selectedPiece) && !isDragging && Boolean(debugDragEnabled);
+}
+
+function getBoardHalfWidth(hexSize) {
+  return BOARD_HALF_WIDTH_FACTOR * hexSize;
+}
+
+function getBoardHalfHeight(hexSize) {
+  return BOARD_HALF_HEIGHT_FACTOR * hexSize;
+}
+
 function getTrayPieceCapacity(width) {
   return Math.max(0, (getTraySlotWidth(width) - 4) / MAX_TRAY_PIECE_LINE_WIDTH_FACTOR);
 }
@@ -115,16 +197,20 @@ function getMinimumTraySlotHeight(width) {
 
 function getTrayBottomOffset(width) {
   if (width < 460) {
-    return 58;
+    return 46;
   }
 
   if (width < 700) {
-    return 64;
+    return 52;
   }
 
   if (width < 900) {
-    return 94;
+    return 72;
   }
 
   return 56;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }

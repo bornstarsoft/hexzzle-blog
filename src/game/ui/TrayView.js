@@ -1,7 +1,6 @@
 import { axialToPixel } from '../core/HexCoordinates.js';
 import {
-  getHexVisualSize,
-  getTrayLayout,
+  getGameVisualLayout,
   getTrayPieceHexSize
 } from '../core/HexVisualLayout.js';
 import { drawHex } from './HoneycombBoardView.js';
@@ -21,7 +20,7 @@ export class TrayView {
     this.graphics = scene.add.graphics();
     this.hitAreas = [];
     this.slotCenters = [];
-    this.lastPieceSize = 22;
+    this.lastPieceSize = 0;
   }
 
   render({ tray, selectedIndex }) {
@@ -30,9 +29,9 @@ export class TrayView {
 
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const hexSize = getHexVisualSize({ width, height });
-    const layout = getTrayLayout({ width, height, hexSize });
-    const pieceSize = getTrayPieceHexSize(hexSize);
+    const visualLayout = getGameVisualLayout({ width, height });
+    const layout = visualLayout.tray;
+    const pieceSize = getTrayPieceHexSize(visualLayout.hexSize);
 
     for (let index = 0; index < 3; index += 1) {
       const x = layout.startX + index * (layout.pieceWidth + layout.gap);

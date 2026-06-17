@@ -1,8 +1,6 @@
 import { axialToPixel, pixelToAxial } from '../core/HexCoordinates.js';
 import {
-  getBoardTopReserve,
-  getBoardTrayReserve,
-  getHexVisualSize,
+  getGameVisualLayout,
   getInvalidFeedbackHexSize,
   getPreviewHexSize
 } from '../core/HexVisualLayout.js';
@@ -58,14 +56,12 @@ export class HoneycombBoardView {
   updateLayout() {
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const topReserve = getBoardTopReserve(width);
-    const trayReserve = getBoardTrayReserve(width);
-    const hexSize = getHexVisualSize({ width, height });
+    const layout = getGameVisualLayout({ width, height });
 
     this.layout = {
-      centerX: width / 2,
-      centerY: topReserve + (height - topReserve - trayReserve) * 0.46,
-      hexSize
+      centerX: layout.board.centerX,
+      centerY: layout.board.centerY,
+      hexSize: layout.hexSize
     };
   }
 

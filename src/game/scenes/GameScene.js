@@ -8,7 +8,7 @@ import {
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import { axialToPixel } from '../core/HexCoordinates.js';
-import { getGhostHexSize } from '../core/HexVisualLayout.js';
+import { getGhostHexSize, shouldShowOpenAnchorHints } from '../core/HexVisualLayout.js';
 import {
   resolveLocalPlacementDrop,
   resolveLocalPlacementPreview
@@ -89,6 +89,7 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerup', this.handlePointerUp, this);
     this.input.on('pointerupoutside', this.handlePointerUp, this);
     this.scale.on('resize', this.redraw, this);
+    this.registerPointerCancelHandlers();
 
     this.input.keyboard?.on('keydown-ONE', () => this.selectTrayPiece(0));
     this.input.keyboard?.on('keydown-TWO', () => this.selectTrayPiece(1));
@@ -112,7 +113,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const piece = getActiveTrayPiece(this.selectionState, this.tray);
-    if (!piece) {
+    if (!piece || !this.debugDragEnabled) {
       return;
     }
 
@@ -174,6 +175,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
+    this.clearPlacementPreview();
     this.boardView.showInvalid(
       preview?.previewAnchor ?? this.hoverCoord,
       state.piece,
@@ -253,7 +255,8 @@ export class GameScene extends Phaser.Scene {
     this.hoverCoord = preview.previewAnchor;
 
     if (!preview.valid) {
-      this.boardView.showInvalid(preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
+      this.clearPlacementPreview();
+      this.boardView.showInvalid(preview.previewAnchor ?? preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
       this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
       this.emitStatus('Not there. Try an open honeycomb space.');
       this.playTone(180, 0.04);
@@ -398,7 +401,11 @@ export class GameScene extends Phaser.Scene {
       hoverCoord: preview?.previewAnchor ?? this.hoverCoord,
       previewValid: Boolean(preview?.valid),
       previewTargets: preview?.targets ?? [],
-      showOpenAnchors: Boolean(piece) && !this.dragState
+      showOpenAnchors: shouldShowOpenAnchorHints({
+        selectedPiece: piece,
+        isDragging: Boolean(this.dragState),
+        debugDragEnabled: this.debugDragEnabled
+      })
     });
     this.trayView.render({
       tray: this.tray,
@@ -557,6 +564,42 @@ export class GameScene extends Phaser.Scene {
   clearDragState() {
     this.destroyDragGhost();
     this.dragState = null;
+  }
+
+  clearPlacementPreview() {
+    this.previewState = null;
+    this.hoverCoord = null;
+  }
+
+  registerPointerCancelHandlers() {
+    const canvas = this.game?.canvas;
+    if (!canvas) {
+      return;
+    }
+
+    this.pointerCancelHandler = () => this.handlePointerCancel();
+    canvas.addEventListener('pointercancel', this.pointerCancelHandler);
+    canvas.addEventListener('mouseleave', this.pointerCancelHandler);
+    window.addEventListener('blur', this.pointerCancelHandler);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      canvas.removeEventListener('pointercancel', this.pointerCancelHandler);
+      canvas.removeEventListener('mouseleave', this.pointerCancelHandler);
+      window.removeEventListener('blur', this.pointerCancelHandler);
+    });
+  }
+
+  handlePointerCancel() {
+    if (this.dragState && !this.dragState.returning) {
+      this.selectionState = keepActivePieceAfterInvalidPlacement(this.selectionState);
+      this.emitStatus(`Piece ${this.dragState.slotIndex + 1} selected. Tap the board.`);
+      this.animateGhostBackToTray(this.dragState);
+      return;
+    }
+
+    if (this.previewState || this.hoverCoord) {
+      this.clearPlacementPreview();
+      this.redraw();
+    }
   }
 
   isInputLocked() {
