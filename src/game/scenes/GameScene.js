@@ -72,7 +72,8 @@ export class GameScene extends Phaser.Scene {
       score: 0,
       placements: 0,
       blooms: 0,
-      emptyCells: this.board.getEmptyCellCount()
+      emptyCells: this.board.getEmptyCellCount(),
+      board: this.board
     });
     this.selectionState = createTraySelectionState();
     this.dragState = null;
@@ -314,7 +315,8 @@ export class GameScene extends Phaser.Scene {
         score: this.scoreModel.score,
         placements: this.placements,
         blooms: this.scoreModel.totalBlooms,
-        emptyCells: this.board.getEmptyCellCount()
+        emptyCells: this.board.getEmptyCellCount(),
+        board: this.board
       });
     }
 
@@ -445,7 +447,8 @@ export class GameScene extends Phaser.Scene {
       score: 0,
       placements: 0,
       blooms: 0,
-      emptyCells: this.board.getEmptyCellCount()
+      emptyCells: this.board.getEmptyCellCount(),
+      board: this.board
     });
     this.selectionState = createTraySelectionState();
     this.clearDragState();
