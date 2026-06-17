@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { createBloomFeedbackLabel } from '../core/BloomFeedback.js';
 import { BloomResolver } from '../core/BloomResolver.js';
 import {
   createDragGhostState,
@@ -31,6 +32,7 @@ import {
   useActiveTrayPiece
 } from '../core/TraySelectionState.js';
 import { HoneycombBoardView, drawHex } from '../ui/HoneycombBoardView.js';
+import { drawStackPointMarkers } from '../ui/StackPointMarkerView.js';
 import { TrayView } from '../ui/TrayView.js';
 
 const COLOR_MAP = {
@@ -252,6 +254,7 @@ export class GameScene extends Phaser.Scene {
       ghostCenter: tracker.ghostPosition,
       ghostSize: tracker.boardCellSize,
       ghost: null,
+      ghostMarkers: null,
       moved: false,
       returning: false,
       startPoint: { x: pointer.x, y: pointer.y }
@@ -590,6 +593,7 @@ export class GameScene extends Phaser.Scene {
     ghost.setDepth(100);
     ghost.setAlpha(0.92);
     state.ghost = ghost;
+    state.ghostMarkers = this.add.group();
     this.drawDragGhost(state, state.ghostPosition);
     return ghost;
   }
@@ -604,7 +608,16 @@ export class GameScene extends Phaser.Scene {
     state.ghostAnchorPoint = getGhostAnchorPoint(state.ghostPosition, state.anchorLocalOffset);
     state.cellCenters = getPieceCellCentersForAnchor(state.ghostAnchorPoint, state.piece, state.ghostSize);
     state.ghost.clear();
+    state.ghostMarkers?.clear(true, true);
     drawPieceOnGraphics(state.ghost, state.piece, state.ghostAnchorPoint.x, state.ghostAnchorPoint.y, state.ghostSize, 0.9);
+    drawStackPointMarkers(this, {
+      piece: state.piece,
+      centers: state.cellCenters,
+      size: state.ghostSize,
+      depth: 112,
+      alpha: state.ghost.alpha,
+      group: state.ghostMarkers
+    });
   }
 
   animateGhostBackToTray(state) {
@@ -653,6 +666,10 @@ export class GameScene extends Phaser.Scene {
       this.tweens.killTweensOf(state.ghost);
       state.ghost.destroy();
       state.ghost = null;
+    }
+    state?.ghostMarkers?.clear(true, true);
+    if (state) {
+      state.ghostMarkers = null;
     }
     this.clearDragDebug();
   }
@@ -885,15 +902,7 @@ export class GameScene extends Phaser.Scene {
 }
 
 function createBloomMessage(result) {
-  if (result.chainCount > 1) {
-    return `Chain x${result.chainCount}`;
-  }
-
-  if (result.groupsCleared > 1) {
-    return 'Double Bloom!';
-  }
-
-  return 'Bloom!';
+  return createBloomFeedbackLabel(result);
 }
 
 function createMergeMessage(result) {

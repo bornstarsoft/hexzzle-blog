@@ -1,5 +1,9 @@
 import { axialToPixel, pixelToAxial } from '../core/HexCoordinates.js';
 import {
+  createBloomFeedbackLabel,
+  getBloomAnimationOrigins
+} from '../core/BloomFeedback.js';
+import {
   getGameVisualLayout,
   getInvalidFeedbackHexSize,
   getPreviewHexSize
@@ -42,12 +46,16 @@ export class HoneycombBoardView {
       const cell = board.getCell(coord);
       const color = cell?.color;
       const point = this.toScreen(coord);
-      drawHex(this.graphics, point.x, point.y, this.layout.hexSize, {
-        fill: color ? COLOR_MAP[color] : 0xffffff,
-        alpha: color ? 0.92 : 0.78,
-        line: color ? 0xffffff : 0xd8e4dc,
-        lineAlpha: color ? 0.85 : 1
-      });
+      if (color) {
+        this.drawStackedCell(point, color, cell.count ?? 1);
+      } else {
+        drawHex(this.graphics, point.x, point.y, this.layout.hexSize, {
+          fill: 0xffffff,
+          alpha: 0.78,
+          line: 0xd8e4dc,
+          lineAlpha: 1
+        });
+      }
 
       if (cell?.count > 1) {
         this.drawStackCount(point, cell.count);
@@ -210,13 +218,10 @@ export class HoneycombBoardView {
       const color = COLOR_MAP[plan.color] ?? 0xf2c94c;
       const target = this.scene.add.container(targetPoint.x, targetPoint.y).setDepth(68).setAlpha(0).setScale(0.84);
       const targetHex = this.scene.add.graphics();
-      drawHex(targetHex, 0, 0, this.layout.hexSize * 1.04, {
-        fill: color,
-        alpha: 0.72,
-        line: 0xffffff,
-        lineAlpha: 0.95
-      });
-      const targetLabel = this.scene.add.text(0, 0, String(plan.totalCount), {
+      const countSequence = plan.targetCountSequence ?? [plan.targetStartCount ?? 1, plan.totalCount];
+      let sequenceIndex = 0;
+      this.drawStackedTileOnGraphics(targetHex, 0, 0, color, countSequence[sequenceIndex] ?? plan.totalCount, 0.78);
+      const targetLabel = this.scene.add.text(0, 0, String(countSequence[sequenceIndex] ?? plan.totalCount), {
         fontFamily: 'Inter, Arial, sans-serif',
         fontSize: `${Math.round(Math.max(16, this.layout.hexSize * 0.64))}px`,
         fontStyle: '800',
@@ -238,16 +243,10 @@ export class HoneycombBoardView {
         ease: 'Back.easeOut'
       });
 
-      plan.sourceCells.forEach((source, sourceIndex) => {
+      (plan.gatherOrder ?? plan.sourceCells.filter((source) => !isSameCoord(source, plan.targetCell))).forEach((source, sourceIndex) => {
         const sourcePoint = this.toScreen(source);
-        const isTarget = isSameCoord(source, plan.targetCell);
-        const delay = Math.min(150, planIndex * 35 + sourceIndex * 28);
+        const delay = Math.min(210, planIndex * 35 + sourceIndex * 64);
         maxDelay = Math.max(maxDelay, delay);
-
-        if (isTarget) {
-          this.drawTargetReceivePulse(targetPoint, color, delay, duration, overlays);
-          return;
-        }
 
         const cover = this.scene.add.graphics().setDepth(61);
         drawHex(cover, sourcePoint.x, sourcePoint.y, this.layout.hexSize * 1.02, {
@@ -262,16 +261,31 @@ export class HoneycombBoardView {
         overlays.push(traveller);
         this.scene.tweens.add({
           targets: traveller,
+          scaleX: 0.16,
+          duration: Math.max(70, duration * 0.28),
+          delay,
+          yoyo: true,
+          repeat: 1,
+          ease: 'Sine.easeInOut'
+        });
+        this.scene.tweens.add({
+          targets: traveller,
           x: targetPoint.x,
-          y: targetPoint.y,
+          y: targetPoint.y - Math.min(this.layout.hexSize * 0.16, 5),
           angle: sourceIndex % 2 === 0 ? 15 : -15,
-          scaleX: 0.48,
           scaleY: 0.48,
           alpha: 0.18,
-          duration,
+          duration: Math.min(360, duration + sourceIndex * 8),
           delay,
           ease: 'Cubic.easeInOut',
-          onComplete: () => traveller.destroy()
+          onComplete: () => {
+            sequenceIndex = Math.min(sequenceIndex + 1, countSequence.length - 1);
+            targetHex.clear();
+            this.drawStackedTileOnGraphics(targetHex, 0, 0, color, countSequence[sequenceIndex] ?? plan.totalCount, 0.82);
+            targetLabel.setText(String(countSequence[sequenceIndex] ?? plan.totalCount));
+            this.drawTargetReceivePulse(targetPoint, color, 0, Math.min(210, duration), overlays);
+            traveller.destroy();
+          }
         });
       });
     });
@@ -379,16 +393,14 @@ export class HoneycombBoardView {
   }
 
   showBloom(result) {
-    const cells = result.scans.flatMap((scan) => scan.flatMap((group) => (
-      group.cells.map((coord) => ({ ...coord, color: group.color }))
-    )));
-    if (cells.length === 0) {
+    const origins = getBloomAnimationOrigins(result);
+    if (origins.length === 0) {
       return;
     }
 
     const duration = Math.min(550, Math.max(350, this.scene.configData.gameFeel?.bloomAnimationMs ?? 460));
-    const center = getCellCenter(cells.map((cell) => this.toScreen(cell)));
-    const label = this.scene.add.text(center.x, center.y - this.layout.hexSize * 0.6, createBloomLabel(result), {
+    const center = getCellCenter(origins.map((cell) => this.toScreen(cell)));
+    const label = this.scene.add.text(center.x, center.y - this.layout.hexSize * 0.6, createBloomFeedbackLabel(result), {
       fontFamily: 'Inter, Arial, sans-serif',
       fontSize: `${Math.round(Math.max(22, this.layout.hexSize * 0.82))}px`,
       fontStyle: '800',
@@ -407,7 +419,7 @@ export class HoneycombBoardView {
       onComplete: () => label.destroy()
     });
 
-    cells.forEach((cell, index) => {
+    origins.forEach((cell, index) => {
       const point = this.toScreen(cell);
       const color = COLOR_MAP[cell.color] ?? 0xf2c94c;
       const bloom = this.scene.add.container(point.x, point.y).setDepth(62).setScale(0.82);
@@ -484,6 +496,31 @@ export class HoneycombBoardView {
     this.textGroup.add(text);
   }
 
+  drawStackedCell(point, color, count) {
+    this.drawStackedTileOnGraphics(this.graphics, point.x, point.y, COLOR_MAP[color] ?? 0xf2c94c, count, 0.92);
+  }
+
+  drawStackedTileOnGraphics(graphics, x, y, color, count, alpha = 0.92) {
+    const depth = Math.min(4, Math.max(0, count - 1));
+    const layerOffset = Math.max(1.3, Math.min(2.4, this.layout.hexSize * 0.07));
+
+    for (let layer = depth; layer >= 1; layer -= 1) {
+      drawHex(graphics, x, y + layer * layerOffset, this.layout.hexSize * (1 - layer * 0.01), {
+        fill: color,
+        alpha: Math.max(0.16, alpha * 0.34),
+        line: 0x17352e,
+        lineAlpha: 0.16
+      });
+    }
+
+    drawHex(graphics, x, y, this.layout.hexSize, {
+      fill: color,
+      alpha,
+      line: 0xffffff,
+      lineAlpha: 0.88
+    });
+  }
+
   drawStackHints(hints) {
     hints.forEach((hint) => {
       const point = this.toScreen(hint.target);
@@ -506,18 +543,6 @@ function getCellCenter(points) {
     x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
     y: points.reduce((sum, point) => sum + point.y, 0) / points.length
   };
-}
-
-function createBloomLabel(result) {
-  if (result.chainCount > 1) {
-    return `Chain x${result.chainCount}`;
-  }
-
-  if (result.groupsCleared > 1) {
-    return 'Double Bloom!';
-  }
-
-  return 'Bloom!';
 }
 
 function isSameCoord(a, b) {

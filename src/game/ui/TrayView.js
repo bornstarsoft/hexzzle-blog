@@ -6,8 +6,8 @@ import {
   getCenteredPieceAnchorPoint,
   getPieceCellCentersForCenteredPiece
 } from '../core/PieceVisualGeometry.js';
-import { getPieceStackPointMarkers } from '../core/BloomStackResolver.js';
 import { drawHex } from './HoneycombBoardView.js';
+import { drawStackPointMarkers } from './StackPointMarkerView.js';
 
 const COLOR_MAP = {
   red: 0xef5a5a,
@@ -77,27 +77,12 @@ export class TrayView {
   }
 
   drawStackPointMarkers(piece, centers, size) {
-    getPieceStackPointMarkers(piece).forEach((marker) => {
-      const center = centers.find((cell) => cell.index === marker.index);
-      if (!center) {
-        return;
-      }
-
-      const text = this.scene.add.text(
-        center.x + size * 0.32,
-        center.y - size * 0.34,
-        marker.label,
-        {
-          fontFamily: 'Inter, Arial, sans-serif',
-          fontSize: `${Math.round(Math.max(14, size * 0.62))}px`,
-          fontStyle: '800',
-          color: '#ffffff',
-          stroke: '#17352e',
-          strokeThickness: Math.max(2, Math.round(size * 0.11))
-        }
-      ).setOrigin(0.5).setDepth(13);
-
-      this.markerGroup.add(text);
+    drawStackPointMarkers(this.scene, {
+      piece,
+      centers,
+      size,
+      depth: 13,
+      group: this.markerGroup
     });
   }
 

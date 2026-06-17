@@ -28,3 +28,37 @@ test('scores Bloom Stack merge progress and bloom bonus', () => {
   assert.equal(score.totalBlooms, 1);
   assert.equal(score.longestGroup, 8);
 });
+
+test('uses tunable per-overbloom bonus for stack counts above 6', () => {
+  const score = new ScoreModel({
+    bloomBase: 120,
+    extraStackBonusPerOver: 40
+  });
+
+  const points = score.addBloomResult({
+    merges: [],
+    scans: [[{ totalCount: 8 }]],
+    groupsCleared: 1,
+    chainCount: 1,
+    longestGroup: 8
+  });
+
+  assert.equal(points, 200);
+});
+
+test('falls back to legacy extraStackBonus when per-over value is not configured', () => {
+  const score = new ScoreModel({
+    bloomBase: 120,
+    extraStackBonus: 25
+  });
+
+  const points = score.addBloomResult({
+    merges: [],
+    scans: [[{ totalCount: 8 }]],
+    groupsCleared: 1,
+    chainCount: 1,
+    longestGroup: 8
+  });
+
+  assert.equal(points, 170);
+});

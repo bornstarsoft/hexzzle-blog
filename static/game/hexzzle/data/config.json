@@ -4,6 +4,7 @@
     "mergeBase": 10,
     "stackProgressBonus": 5,
     "bloomBase": 120,
+    "extraStackBonusPerOver": 30,
     "extraStackBonus": 30,
     "multiBloomBonus": 75,
     "chainMultiplierStep": 0.5,

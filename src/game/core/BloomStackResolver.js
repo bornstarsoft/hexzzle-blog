@@ -1,4 +1,5 @@
 import { axialKey } from './HexCoordinates.js';
+import { getOverbloomCount } from './BloomFeedback.js';
 
 const DEFAULT_THRESHOLD = 6;
 
@@ -103,20 +104,30 @@ export function getBloomStackPlans(board, { placedCells = [], anchor = null, thr
       placed: placedByKey.has(axialKey(coord)),
       stackPoint: Boolean(placedByKey.get(axialKey(coord))?.stackPoint)
     }));
+    const gatherOrder = getGatherOrder(sourceCells, target);
+    const targetStartCount = sourceCells.find((cell) => isSameCoord(cell, target))?.count ?? 0;
+    const targetCountSequence = getTargetCountSequence(targetStartCount, gatherOrder, totalCount);
+    const willBloom = totalCount >= threshold;
+    const overbloomCount = getOverbloomCount(totalCount, threshold);
 
     plans.push({
-      action: totalCount >= threshold ? 'bloom' : 'merge',
+      action: willBloom ? 'bloom' : 'merge',
       color: placedCell.color,
       cells: component.cells,
       target,
       targetCell: target,
       sourceCells,
       sourceCounts: sourceCells.map((cell) => cell.count),
+      gatherOrder,
+      targetStartCount,
+      targetCountSequence,
       totalCount,
       threshold,
-      willBloom: totalCount >= threshold,
+      willBloom,
+      overbloomCount,
+      bloomOrigins: willBloom ? [{ ...target, color: placedCell.color, totalCount }] : [],
       placedCells: component.cells.filter((coord) => placedByKey.has(axialKey(coord))),
-      hint: totalCount >= threshold ? 'Bloom!' : `${totalCount}/${threshold}`
+      hint: willBloom ? 'Bloom!' : `${totalCount}/${threshold}`
     });
   });
 
@@ -228,6 +239,36 @@ function orderSourceCells(cells, target, board, placedByKey) {
 
       return targetDelta || stackDelta || placedDelta || countDelta || axialKey(a).localeCompare(axialKey(b));
     });
+}
+
+function getGatherOrder(sourceCells, target) {
+  return sourceCells
+    .filter((cell) => !isSameCoord(cell, target))
+    .sort((a, b) => {
+      const distanceDelta = axialDistance(b, target) - axialDistance(a, target);
+      const placedDelta = Number(!a.placed) - Number(!b.placed);
+      const stackDelta = Number(!a.stackPoint) - Number(!b.stackPoint);
+      const countDelta = (b.count ?? 0) - (a.count ?? 0);
+
+      return distanceDelta || placedDelta || stackDelta || countDelta || axialKey(a).localeCompare(axialKey(b));
+    })
+    .map((cell) => ({ ...cell }));
+}
+
+function getTargetCountSequence(targetStartCount, gatherOrder, totalCount) {
+  const sequence = [targetStartCount];
+  let cursor = targetStartCount;
+
+  gatherOrder.forEach((cell) => {
+    cursor += cell.count;
+    sequence.push(Math.min(cursor, totalCount));
+  });
+
+  if (sequence[sequence.length - 1] !== totalCount) {
+    sequence.push(totalCount);
+  }
+
+  return sequence;
 }
 
 function axialDistance(a, b) {

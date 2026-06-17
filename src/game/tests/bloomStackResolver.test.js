@@ -193,7 +193,38 @@ test('same-color duplicated piece exposes source cells and target cell for gathe
     result.gatherPlans[0].sourceCounts,
     [1, 1, 1]
   );
+  assert.deepEqual(
+    result.gatherPlans[0].gatherOrder.map((cell) => ({ q: cell.q, r: cell.r, count: cell.count })),
+    [
+      { q: 2, r: 0, count: 1 },
+      { q: 1, r: 0, count: 1 }
+    ]
+  );
+  assert.deepEqual(result.gatherPlans[0].targetCountSequence, [1, 2, 3]);
   assert.equal(board.getCellCount({ q: 0, r: 0 }), 3);
+});
+
+test('6+ Bloom plan uses one final target and exposes overbloom count', () => {
+  const board = new HexBoardModel(3);
+  board.setCell({ q: 0, r: 0 }, { color: 'orange', count: 5 });
+  const piece = {
+    cells: [
+      { dq: 0, dr: 0, color: 'orange' },
+      { dq: 1, dr: 0, color: 'orange' }
+    ]
+  };
+  const placedCells = board.getTargets(piece, { q: 1, r: 0 });
+  placedCells.forEach((cell) => board.setCell(cell, { color: cell.color, count: 1 }));
+
+  const result = new BloomStackResolver().plan(board, { placedCells, anchor: { q: 1, r: 0 } });
+
+  assert.equal(result.blooms.length, 1);
+  assert.equal(result.blooms[0].willBloom, true);
+  assert.deepEqual(result.blooms[0].targetCell, { q: 1, r: 0 });
+  assert.equal(result.blooms[0].totalCount, 7);
+  assert.equal(result.blooms[0].overbloomCount, 1);
+  assert.deepEqual(result.blooms[0].bloomOrigins, [{ q: 1, r: 0, color: 'orange', totalCount: 7 }]);
+  assert.deepEqual(result.blooms[0].targetCountSequence, [1, 2, 7]);
 });
 
 test('deterministic merge target prefers placed stack-point cell for duplicated color', () => {
@@ -281,6 +312,22 @@ test('tray stack point marker data returns one plus per duplicated color', () =>
   assert.deepEqual(noMarkers, []);
   assert.deepEqual(tripleMarker, [{ color: 'purple', count: 3, index: 0, label: '+' }]);
   assert.deepEqual(mixedMarkers, [
+    { color: 'red', count: 2, index: 0, label: '+' },
+    { color: 'blue', count: 2, index: 1, label: '+' }
+  ]);
+});
+
+test('drag ghost stack point marker data matches tray marker data', () => {
+  const piece = {
+    cells: [
+      { color: 'red' },
+      { color: 'blue' },
+      { color: 'red' },
+      { color: 'blue' }
+    ]
+  };
+
+  assert.deepEqual(getPieceStackPointMarkers(piece), [
     { color: 'red', count: 2, index: 0, label: '+' },
     { color: 'blue', count: 2, index: 1, label: '+' }
   ]);

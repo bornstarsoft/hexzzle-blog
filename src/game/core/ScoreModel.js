@@ -3,6 +3,7 @@ export const DEFAULT_SCORE_CONFIG = {
   mergeBase: 10,
   stackProgressBonus: 5,
   bloomBase: 120,
+  extraStackBonusPerOver: 30,
   extraStackBonus: 30,
   multiBloomBonus: 75,
   chainMultiplierStep: 0.5,
@@ -11,6 +12,7 @@ export const DEFAULT_SCORE_CONFIG = {
 
 export class ScoreModel {
   constructor(config = DEFAULT_SCORE_CONFIG) {
+    this.hasExplicitExtraStackBonusPerOver = Object.hasOwn(config, 'extraStackBonusPerOver');
     this.config = { ...DEFAULT_SCORE_CONFIG, ...config };
     this.score = 0;
     this.totalBlooms = 0;
@@ -40,7 +42,7 @@ export class ScoreModel {
       const multiBonus = Math.max(0, groups.length - 1) * this.config.multiBloomBonus;
       const scanPoints = groups.reduce((sum, group) => {
         const extraStack = Math.max(0, group.totalCount - 6);
-        return sum + this.config.bloomBase + extraStack * this.config.extraStackBonus;
+        return sum + this.config.bloomBase + extraStack * this.getExtraStackBonusPerOver();
       }, multiBonus);
 
       points += Math.round(scanPoints * chainMultiplier);
@@ -52,6 +54,12 @@ export class ScoreModel {
     this.longestGroup = Math.max(this.longestGroup, result.longestGroup);
 
     return points;
+  }
+
+  getExtraStackBonusPerOver() {
+    return this.hasExplicitExtraStackBonusPerOver
+      ? this.config.extraStackBonusPerOver
+      : this.config.extraStackBonus;
   }
 
   snapshot() {
