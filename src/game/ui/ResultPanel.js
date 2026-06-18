@@ -9,6 +9,7 @@ export class ResultPanel {
     this.overbloomsNode = documentRef.querySelector('[data-result-overblooms]');
     this.piecesNode = documentRef.querySelector('[data-result-pieces]');
     this.newBestNode = documentRef.querySelector('[data-result-new-best]');
+    this.recordsSectionNode = documentRef.querySelector('[data-result-records-section]');
     this.recordsListNode = documentRef.querySelector('[data-result-records-list]');
     this.recordsEmptyNode = documentRef.querySelector('[data-result-records-empty]');
     this.recordRankNode = documentRef.querySelector('[data-result-record-rank]');
@@ -39,6 +40,9 @@ export class ResultPanel {
     if (this.panel) {
       this.panel.hidden = true;
     }
+    if (this.recordsSectionNode) {
+      this.recordsSectionNode.hidden = true;
+    }
     this.latestStats = null;
     this.showAllRecords = false;
     this.updateRecordsButton();
@@ -61,6 +65,9 @@ export class ResultPanel {
     const records = Array.isArray(stats.localRecords) ? stats.localRecords : [];
     const visibleRecords = this.showAllRecords ? records.slice(0, 10) : [];
     this.recordsListNode.replaceChildren();
+    if (this.recordsSectionNode) {
+      this.recordsSectionNode.hidden = !this.showAllRecords;
+    }
     this.recordsListNode.hidden = !this.showAllRecords;
     this.recordsEmptyNode.hidden = !this.showAllRecords || records.length > 0;
 

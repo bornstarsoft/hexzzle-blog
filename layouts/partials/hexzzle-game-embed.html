@@ -30,7 +30,7 @@
 
   <section class="result-panel result-panel--overlay" data-hexzzle-result hidden role="dialog" aria-modal="true" aria-labelledby="result-title">
     <div class="result-panel__dialog">
-      <div class="result-card" data-hexzzle-result-card>
+      <div class="result-card result-card--compact" data-hexzzle-result-card>
         <div class="result-card__header">
           <div>
             <p class="eyebrow">Classic result</p>
@@ -45,13 +45,13 @@
         <dl class="result-card__stats">
           <div><dt>Best</dt><dd data-result-best>0</dd></div>
           <div><dt>Blooms</dt><dd data-result-blooms>0</dd></div>
-          <div><dt>Best Stack</dt><dd data-result-stack>0</dd></div>
-          <div><dt>Overblooms</dt><dd data-result-overblooms>0</dd></div>
+          <div><dt><span class="result-label-full">Best Stack</span><span class="result-label-short" aria-hidden="true">Stack</span></dt><dd data-result-stack>0</dd></div>
+          <div><dt><span class="result-label-full">Overblooms</span><span class="result-label-short" aria-hidden="true">Over</span></dt><dd data-result-overblooms>0</dd></div>
           <div><dt>Pieces</dt><dd data-result-pieces>0</dd></div>
         </dl>
       </div>
 
-      <section class="result-records" aria-labelledby="local-records-title">
+      <section class="result-records result-records--drawer" data-result-records-section hidden aria-labelledby="local-records-title">
         <div class="result-records__header">
           <div>
             <h3 id="local-records-title">Local Records</h3>
@@ -68,7 +68,7 @@
         <button class="button button--secondary" type="button" data-hexzzle-share>Share</button>
         <button class="button button--secondary" type="button" data-hexzzle-records aria-expanded="false">Records</button>
       </div>
-      <p class="hexzzle-status" data-hexzzle-share-status aria-live="polite"></p>
+      <p class="hexzzle-status result-panel__share-status" data-hexzzle-share-status aria-live="polite"></p>
     </div>
   </section>
 </div>

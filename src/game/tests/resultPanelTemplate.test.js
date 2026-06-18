@@ -22,3 +22,22 @@ test('result popup uses a high fixed overlay contract for mobile visibility', ()
   assert.match(gameCss, /\.result-panel__dialog\s*\{[^}]*max-width:\s*420px/s);
   assert.match(gameCss, /\.result-records__list\[hidden\]/);
 });
+
+test('result popup default view uses compact mobile markup', () => {
+  assert.match(embed, /class="result-card result-card--compact"/);
+  assert.match(embed, /class="result-label-full">Best Stack/);
+  assert.match(embed, /class="result-label-short" aria-hidden="true">Stack/);
+  assert.match(embed, /class="result-label-full">Overblooms/);
+  assert.match(embed, /class="result-label-short" aria-hidden="true">Over/);
+  assert.match(embed, /class="hexzzle-status result-panel__share-status"/);
+  assert.match(gameCss, /\.result-panel__share-status:empty\s*\{[^}]*display:\s*none/s);
+  assert.match(gameCss, /@media\s*\(max-width:\s*520px\)\s*\{[\s\S]*\.result-panel__dialog\s*\{[\s\S]*overflow-y:\s*hidden/s);
+  assert.match(gameCss, /@media\s*\(max-width:\s*520px\)\s*\{[\s\S]*\.result-panel__actions\s*\{[\s\S]*grid-template-columns:\s*1\.25fr 1fr 1fr/s);
+});
+
+test('result records are hidden by default and open as a compact drawer', () => {
+  assert.match(embed, /class="result-records result-records--drawer"[^>]*data-result-records-section[^>]*hidden/);
+  assert.match(gameCss, /\.result-records\[hidden\]\s*\{[^}]*display:\s*none/s);
+  assert.match(gameCss, /\.result-records--drawer\s*\{[^}]*max-height:/s);
+  assert.match(gameCss, /\.result-records__list\s*\{[^}]*overflow-y:\s*auto/s);
+});
