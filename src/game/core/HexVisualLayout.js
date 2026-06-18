@@ -105,6 +105,7 @@ export function getTrayLayout({ width, height, hexSize }) {
   const gap = getTrayGap(width);
   const totalWidth = getTrayTotalWidth(width);
   const pieceWidth = (totalWidth - gap * 2) / 3;
+  const pieceAllowanceWidth = pieceWidth + getTrayPieceOverhang(width);
   const pieceHeight = Math.max(getMinimumTraySlotHeight(width), hexSize * 5.1);
   const bottomOffset = getTrayBottomOffset(width);
   const startX = (width - totalWidth) / 2;
@@ -115,6 +116,7 @@ export function getTrayLayout({ width, height, hexSize }) {
     gap,
     totalWidth,
     pieceWidth,
+    pieceAllowanceWidth,
     pieceHeight,
     startX,
     y,
@@ -146,6 +148,10 @@ export function getMaxTrayPieceVisualWidth(hexSize) {
   return MAX_TRAY_PIECE_LINE_WIDTH_FACTOR * hexSize;
 }
 
+export function getTrayPieceAllowanceWidth(trayLayout) {
+  return trayLayout?.pieceAllowanceWidth ?? trayLayout?.pieceWidth ?? 0;
+}
+
 export function shouldShowOpenAnchorHints({ selectedPiece, isDragging, debugDragEnabled }) {
   return Boolean(selectedPiece) && !isDragging && Boolean(debugDragEnabled);
 }
@@ -159,7 +165,7 @@ function getBoardHalfHeight(hexSize) {
 }
 
 function getTrayPieceCapacity(width) {
-  return Math.max(0, (getTraySlotWidth(width) - getTrayPieceSideInset(width)) / MAX_TRAY_PIECE_LINE_WIDTH_FACTOR);
+  return Math.max(0, (getTraySlotWidth(width) + getTrayPieceOverhang(width) - getTrayPieceSideInset(width)) / MAX_TRAY_PIECE_LINE_WIDTH_FACTOR);
 }
 
 function getTraySlotWidth(width) {
@@ -180,11 +186,15 @@ function getTrayTotalWidth(width) {
 }
 
 function getTrayGap(width) {
-  return width < 520 ? 2 : 10;
+  return width < 520 ? 0 : 10;
 }
 
 function getTrayPieceSideInset(width) {
-  return width < 520 ? 1 : 4;
+  return width < 520 ? 0 : 4;
+}
+
+function getTrayPieceOverhang(width) {
+  return width < 520 ? Math.min(18, width * 0.045) : 0;
 }
 
 function getMinimumTraySlotHeight(width) {

@@ -14,6 +14,7 @@ import {
   getPreviewHexSize,
   getTrayBounds,
   getTrayLayout,
+  getTrayPieceAllowanceWidth,
   getTrayPieceHexSize,
   shouldShowOpenAnchorHints
 } from '../core/HexVisualLayout.js';
@@ -35,7 +36,8 @@ test('mobile tray slots fit a board-size four-cell line without shrinking tray p
 
     assert.equal(tray.slotCount, 3);
     assert.ok(getMaxTrayPieceVisualWidth(boardHexSize) >= fourCellLineWidth);
-    assert.ok(fourCellLineWidth <= tray.pieceWidth);
+    assert.ok(fourCellLineWidth <= getTrayPieceAllowanceWidth(tray));
+    assert.ok(getTrayPieceAllowanceWidth(tray) - tray.pieceWidth <= 20);
   }
 });
 
@@ -75,7 +77,7 @@ test('small mobile layout uses compact board and tray reserves', () => {
   }
 });
 
-test('mobile board uses more of the 95 percent game panel without clipping tray', () => {
+test('mobile board uses more of the side-gutter game panel without clipping tray', () => {
   const cases = [
     { viewportWidth: 360, panelHeight: 498 },
     { viewportWidth: 390, panelHeight: 538 },
@@ -84,13 +86,13 @@ test('mobile board uses more of the 95 percent game panel without clipping tray'
   ];
 
   for (const item of cases) {
-    const panelWidth = Math.round(item.viewportWidth * 0.95);
+    const panelWidth = Math.round(item.viewportWidth * 0.97);
     const layout = getGameVisualLayout({ width: panelWidth, height: item.panelHeight });
     const board = getBoardBounds(layout.board);
     const tray = getTrayBounds(layout.tray);
     const boardWidthRatio = (board.right - board.left) / panelWidth;
 
-    assert.ok(boardWidthRatio >= 0.565, `mobile board ratio too small at ${item.viewportWidth}px`);
+    assert.ok(boardWidthRatio >= 0.64, `mobile board ratio too small at ${item.viewportWidth}px`);
     assert.ok(board.bottom + layout.boardTrayGap <= tray.top, `board/tray overlap at ${item.viewportWidth}px`);
     assert.ok(tray.bottom <= item.panelHeight - 30, `tray safe reserve too small at ${item.viewportWidth}px`);
   }

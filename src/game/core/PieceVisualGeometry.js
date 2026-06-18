@@ -61,6 +61,20 @@ export function getPieceVisualBoundsFromOffsets(offsets) {
   };
 }
 
+export function getPieceVisualOuterBoundsFromOffsets(offsets, hexSize) {
+  const bounds = getPieceVisualBoundsFromOffsets(offsets);
+  const halfWidth = Math.sqrt(3) * hexSize / 2;
+
+  return {
+    left: bounds.left - halfWidth,
+    right: bounds.right + halfWidth,
+    top: bounds.top - hexSize,
+    bottom: bounds.bottom + hexSize,
+    centerX: bounds.centerX,
+    centerY: bounds.centerY
+  };
+}
+
 export function getCenteredPieceAnchorPoint(centerPoint, piece, hexSize) {
   const bounds = getPieceVisualBoundsFromOffsets(getPiecePixelOffsetsFromAnchor(piece, hexSize));
 
@@ -68,6 +82,37 @@ export function getCenteredPieceAnchorPoint(centerPoint, piece, hexSize) {
     x: centerPoint.x - bounds.centerX,
     y: centerPoint.y - bounds.centerY
   };
+}
+
+export function getClampedCenteredPiecePoint(centerPoint, piece, hexSize, bounds) {
+  if (!bounds || !piece) {
+    return { ...centerPoint };
+  }
+
+  const offsets = getPiecePixelOffsetsFromAnchor(piece, hexSize);
+  const visualBounds = getPieceVisualBoundsFromOffsets(offsets);
+  const outerBounds = getPieceVisualOuterBoundsFromOffsets(offsets, hexSize);
+  const point = { ...centerPoint };
+
+  const actualLeft = () => point.x - visualBounds.centerX + outerBounds.left;
+  const actualRight = () => point.x - visualBounds.centerX + outerBounds.right;
+  const actualTop = () => point.y - visualBounds.centerY + outerBounds.top;
+  const actualBottom = () => point.y - visualBounds.centerY + outerBounds.bottom;
+
+  if (Number.isFinite(bounds.left) && actualLeft() < bounds.left) {
+    point.x += bounds.left - actualLeft();
+  }
+  if (Number.isFinite(bounds.right) && actualRight() > bounds.right) {
+    point.x -= actualRight() - bounds.right;
+  }
+  if (Number.isFinite(bounds.top) && actualTop() < bounds.top) {
+    point.y += bounds.top - actualTop();
+  }
+  if (Number.isFinite(bounds.bottom) && actualBottom() > bounds.bottom) {
+    point.y -= actualBottom() - bounds.bottom;
+  }
+
+  return point;
 }
 
 export function getPieceCellCentersForAnchor(anchorPoint, piece, hexSize) {

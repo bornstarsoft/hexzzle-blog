@@ -19,6 +19,13 @@ import {
   getPiecePixelOffsetsFromAnchor
 } from '../core/PieceVisualGeometry.js';
 import {
+  createBloomSoundCues,
+  createGatherSoundCues,
+  createInvalidSoundCues,
+  createPlacementSoundCues,
+  createSoundUnlockCues
+} from '../core/SoundFeedback.js';
+import {
   resolveLocalPlacementDrop,
   resolveLocalPlacementPreview
 } from '../core/PlacementResolver.js';
@@ -35,7 +42,7 @@ import {
   useActiveTrayPiece
 } from '../core/TraySelectionState.js';
 import { HoneycombBoardView, drawHex } from '../ui/HoneycombBoardView.js';
-import { drawStackPointMarkers } from '../ui/StackPointMarkerView.js';
+import { getStackPointMarkerCenters } from '../ui/StackPointMarkerView.js';
 import { TrayView } from '../ui/TrayView.js';
 
 const COLOR_MAP = {
@@ -129,7 +136,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.dragState) {
-      this.queueDragUpdate(pointer);
+      this.updateDrag(pointer);
       return;
     }
 
@@ -148,6 +155,8 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver || this.isInputLocked()) {
       return;
     }
+
+    this.ensureAudioReady();
 
     const trayIndex = this.trayView.getPieceIndexAt(pointer);
     if (trayIndex !== null) {
@@ -212,7 +221,7 @@ export class GameScene extends Phaser.Scene {
       this.configData.gameFeel?.invalidFeedbackMs ?? 180
     );
     this.emitStatus('Not there. Choose another piece or open space.');
-    this.playTone(180, 0.04);
+    this.playSoundCues(createInvalidSoundCues());
     this.animateGhostBackToTray(state);
   }
 
@@ -294,7 +303,7 @@ export class GameScene extends Phaser.Scene {
       this.boardView.showInvalid(preview.previewAnchor ?? preferredAnchor, piece, this.configData.gameFeel?.invalidFeedbackMs ?? 180);
       this.selectionState = clearActivePieceAfterInvalidPlacement(this.selectionState);
       this.emitStatus('Not there. Choose another piece or open space.');
-      this.playTone(180, 0.04);
+      this.playSoundCues(createInvalidSoundCues());
       this.redraw();
       return;
     }
@@ -331,7 +340,7 @@ export class GameScene extends Phaser.Scene {
 
     this.redraw();
     this.boardView.showScorePop(anchor, `+${placePoints + stackPoints}`);
-    this.playTone(440, 0.05);
+    this.playSoundCues(createPlacementSoundCues());
     this.emitStats();
 
     if (bloomResult.gatherPlans.length > 0) {
@@ -359,6 +368,7 @@ export class GameScene extends Phaser.Scene {
     this.emitStatus(bloomResult.groupsCleared > 0
       ? 'Stack reaches 6. Bloom!'
       : 'Same colors gather into one stack.');
+    this.playSoundCues(createGatherSoundCues(bloomResult));
 
     this.boardView.showGather(bloomResult, {
       duration: gatherMs,
@@ -373,7 +383,7 @@ export class GameScene extends Phaser.Scene {
 
         if (bloomResult.groupsCleared > 0) {
           this.boardView.showBloom(bloomResult);
-          this.playTone(660, 0.08);
+          this.playSoundCues(createBloomSoundCues(bloomResult));
           this.emitStatus(createBloomMessage(bloomResult));
           this.time.delayedCall(bloomMs, () => {
             if (animationToken !== this.resolutionAnimationToken) {
@@ -478,7 +488,8 @@ export class GameScene extends Phaser.Scene {
     this.storage.setSoundEnabled(this.soundEnabled);
     this.emitStats();
     if (this.soundEnabled) {
-      this.playTone(520, 0.05);
+      this.ensureAudioReady();
+      this.playSoundCues(createSoundUnlockCues());
     }
     return this.soundEnabled;
   }
@@ -651,7 +662,7 @@ export class GameScene extends Phaser.Scene {
     ghost.setDepth(100);
     ghost.setAlpha(0.92);
     state.ghost = ghost;
-    state.ghostMarkers = this.add.group();
+    state.ghostMarkers = [];
     this.drawDragGhost(state, state.ghostPosition);
     return ghost;
   }
@@ -666,16 +677,36 @@ export class GameScene extends Phaser.Scene {
     state.ghostAnchorPoint = getGhostAnchorPoint(state.ghostPosition, state.anchorLocalOffset);
     state.cellCenters = getPieceCellCentersForAnchor(state.ghostAnchorPoint, state.piece, state.ghostSize);
     state.ghost.clear();
-    state.ghostMarkers?.clear(true, true);
     drawPieceOnGraphics(state.ghost, state.piece, state.ghostAnchorPoint.x, state.ghostAnchorPoint.y, state.ghostSize, 0.9);
-    drawStackPointMarkers(this, {
-      piece: state.piece,
-      centers: state.cellCenters,
-      size: state.ghostSize,
-      depth: 112,
-      alpha: state.ghost.alpha,
-      group: state.ghostMarkers
+    this.updateDragGhostMarkers(state);
+  }
+
+  updateDragGhostMarkers(state) {
+    const markers = getStackPointMarkerCenters(state.piece, state.cellCenters);
+    state.ghostMarkers ??= [];
+
+    markers.forEach((marker, index) => {
+      let text = state.ghostMarkers[index];
+      if (!text) {
+        text = this.add.text(0, 0, marker.label, {
+          fontFamily: 'Inter, Arial, sans-serif',
+          fontStyle: '800',
+          color: '#ffffff',
+          stroke: '#17352e'
+        }).setOrigin(0.5).setDepth(112);
+        state.ghostMarkers[index] = text;
+      }
+
+      text
+        .setText(marker.label)
+        .setPosition(marker.x + state.ghostSize * 0.32, marker.y - state.ghostSize * 0.34)
+        .setFontSize(Math.round(Math.max(14, state.ghostSize * 0.62)))
+        .setStroke('#17352e', Math.max(2, Math.round(state.ghostSize * 0.11)))
+        .setAlpha(state.ghost?.alpha ?? 0.92)
+        .setVisible(true);
     });
+
+    state.ghostMarkers.slice(markers.length).forEach((marker) => marker.setVisible(false));
   }
 
   animateGhostBackToTray(state) {
@@ -727,7 +758,7 @@ export class GameScene extends Phaser.Scene {
       state.ghost.destroy();
       state.ghost = null;
     }
-    state?.ghostMarkers?.clear(true, true);
+    state?.ghostMarkers?.forEach((marker) => marker.destroy());
     if (state) {
       state.ghostMarkers = null;
     }
@@ -974,25 +1005,64 @@ export class GameScene extends Phaser.Scene {
     }));
   }
 
-  playTone(frequency, duration) {
+  ensureAudioReady() {
     if (!this.soundEnabled) {
-      return;
+      return null;
     }
 
     const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
     if (!AudioContextClass) {
-      return;
+      return null;
     }
 
     this.audioContext ??= new AudioContextClass();
+    if (this.audioContext.state === 'suspended' && this.audioContext.resume) {
+      this.audioContext.resume().catch(() => {});
+    }
+
+    return this.audioContext;
+  }
+
+  playSoundCues(cues = []) {
+    if (!this.soundEnabled || cues.length === 0) {
+      return;
+    }
+
+    const context = this.ensureAudioReady();
+    if (!context) {
+      return;
+    }
+
+    cues.forEach((cue) => this.playTone(cue.frequency, cue.duration, cue));
+  }
+
+  playTone(frequency, duration, {
+    delay = 0,
+    gain: gainValue = 0.065,
+    type = 'sine'
+  } = {}) {
+    if (!this.soundEnabled) {
+      return;
+    }
+
+    const context = this.ensureAudioReady();
+    if (!context) {
+      return;
+    }
+
     const oscillator = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'sine';
-    gain.gain.value = 0.035;
-    oscillator.connect(gain).connect(this.audioContext.destination);
-    oscillator.start();
-    oscillator.stop(this.audioContext.currentTime + duration);
+    const start = context.currentTime + Math.max(0, delay);
+    const end = start + Math.max(0.02, duration);
+
+    oscillator.frequency.setValueAtTime(frequency, start);
+    oscillator.type = type;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, gainValue), start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(end + 0.025);
   }
 }
 

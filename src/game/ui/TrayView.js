@@ -3,6 +3,7 @@ import {
   getTrayPieceHexSize
 } from '../core/HexVisualLayout.js';
 import {
+  getClampedCenteredPiecePoint,
   getCenteredPieceAnchorPoint,
   getPieceCellCentersForCenteredPiece
 } from '../core/PieceVisualGeometry.js';
@@ -24,6 +25,7 @@ export class TrayView {
     this.graphics = scene.add.graphics();
     this.hitAreas = [];
     this.slotCenters = [];
+    this.pieceCenters = [];
     this.lastPieceSize = 0;
     this.markerGroup = scene.add.group();
   }
@@ -32,6 +34,7 @@ export class TrayView {
     this.graphics.clear();
     this.markerGroup.clear(true, true);
     this.hitAreas = [];
+    this.pieceCenters = [];
 
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
@@ -46,6 +49,7 @@ export class TrayView {
 
       this.hitAreas[index] = { x, y: layout.y, width: layout.pieceWidth, height: layout.pieceHeight };
       this.slotCenters[index] = { x: x + layout.pieceWidth / 2, y: layout.y + layout.pieceHeight / 2 };
+      this.pieceCenters[index] = this.slotCenters[index];
       this.lastPieceSize = pieceSize;
       this.graphics.fillStyle(selected && piece ? 0xdff5ea : 0xffffff, piece ? 0.96 : 0.48);
       this.graphics.lineStyle(selected && piece ? 3 : 1.5, selected && piece ? 0x18756b : 0xd8e4dc, piece ? 1 : 0.7);
@@ -53,7 +57,14 @@ export class TrayView {
       this.graphics.strokeRoundedRect(x, layout.y, layout.pieceWidth, layout.pieceHeight, 8);
 
       if (piece) {
-        this.drawPiece(piece, this.slotCenters[index].x, this.slotCenters[index].y, pieceSize);
+        const pieceCenter = getClampedCenteredPiecePoint(this.slotCenters[index], piece, pieceSize, {
+          left: 3,
+          right: width - 3,
+          top: layout.y + 2,
+          bottom: layout.y + layout.pieceHeight - 2
+        });
+        this.pieceCenters[index] = pieceCenter;
+        this.drawPiece(piece, pieceCenter.x, pieceCenter.y, pieceSize);
       } else {
         this.graphics.fillStyle(0xd8e4dc, 0.34);
         this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 8);
@@ -102,7 +113,7 @@ export class TrayView {
   }
 
   getPieceAnchorPoint(index, piece) {
-    const center = this.getSlotCenter(index);
+    const center = this.pieceCenters[index] ?? this.getSlotCenter(index);
     if (!center || !piece) {
       return null;
     }

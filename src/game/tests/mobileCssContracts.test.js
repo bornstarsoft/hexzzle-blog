@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 const siteCss = readFileSync('assets/css/main.css', 'utf8');
 const gameCss = readFileSync('static/game/hexzzle/hexzzle-game.css', 'utf8');
 
-test('mobile game panel keeps side gutters around 95 percent width', () => {
-  assert.match(siteCss, /--game-card-width-mobile:\s*min\(95vw,\s*calc\(100%\s*-\s*20px\)\)/);
+test('mobile game panel keeps narrow scrollable side gutters', () => {
+  assert.match(siteCss, /--game-card-width-mobile:\s*min\(97vw,\s*calc\(100%\s*-\s*12px\)\)/);
 });
 
 test('touch blocking is scoped to the actual canvas surface', () => {

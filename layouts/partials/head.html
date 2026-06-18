@@ -5,6 +5,7 @@
 <title>{{ $title }}</title>
 <meta name="description" content="{{ $description }}">
 <link rel="canonical" href="{{ .Permalink }}">
+<link rel="icon" href="/images/hexzzle-og.svg" type="image/svg+xml">
 {{ partial "social-meta.html" . }}
 {{ $mainCSS := resources.Get "css/main.css" | minify | fingerprint }}
 <link rel="stylesheet" href="{{ $mainCSS.RelPermalink }}" integrity="{{ $mainCSS.Data.Integrity }}">
