@@ -30,7 +30,7 @@ export class TrayView {
     this.markerGroup = scene.add.group();
   }
 
-  render({ tray, selectedIndex }) {
+  render({ tray, selectedIndex, draggingIndex = null }) {
     this.graphics.clear();
     this.markerGroup.clear(true, true);
     this.hitAreas = [];
@@ -45,18 +45,22 @@ export class TrayView {
     for (let index = 0; index < 3; index += 1) {
       const x = layout.startX + index * (layout.pieceWidth + layout.gap);
       const piece = tray[index];
-      const selected = index === selectedIndex;
+      const visualState = getTraySlotVisualState({
+        piece,
+        selected: index === selectedIndex,
+        dragging: index === draggingIndex
+      });
 
       this.hitAreas[index] = { x, y: layout.y, width: layout.pieceWidth, height: layout.pieceHeight };
       this.slotCenters[index] = { x: x + layout.pieceWidth / 2, y: layout.y + layout.pieceHeight / 2 };
       this.pieceCenters[index] = this.slotCenters[index];
       this.lastPieceSize = pieceSize;
-      this.graphics.fillStyle(selected && piece ? 0xdff5ea : 0xffffff, piece ? 0.96 : 0.48);
-      this.graphics.lineStyle(selected && piece ? 3 : 1.5, selected && piece ? 0x18756b : 0xd8e4dc, piece ? 1 : 0.7);
+      this.graphics.fillStyle(visualState.fill, visualState.fillAlpha);
+      this.graphics.lineStyle(visualState.lineWidth, visualState.line, visualState.lineAlpha);
       this.graphics.fillRoundedRect(x, layout.y, layout.pieceWidth, layout.pieceHeight, 8);
       this.graphics.strokeRoundedRect(x, layout.y, layout.pieceWidth, layout.pieceHeight, 8);
 
-      if (piece) {
+      if (piece && visualState.drawPiece) {
         const pieceCenter = getClampedCenteredPiecePoint(this.slotCenters[index], piece, pieceSize, {
           left: 3,
           right: width - 3,
@@ -65,6 +69,11 @@ export class TrayView {
         });
         this.pieceCenters[index] = pieceCenter;
         this.drawPiece(piece, pieceCenter.x, pieceCenter.y, pieceSize);
+      } else if (visualState.drawLiftPlaceholder) {
+        this.graphics.fillStyle(0x18756b, 0.12);
+        this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 11);
+        this.graphics.lineStyle(2, 0x18756b, 0.24);
+        this.graphics.strokeCircle(this.slotCenters[index].x, this.slotCenters[index].y, 15);
       } else {
         this.graphics.fillStyle(0xd8e4dc, 0.34);
         this.graphics.fillCircle(this.slotCenters[index].x, this.slotCenters[index].y, 8);
@@ -124,4 +133,23 @@ export class TrayView {
   getPieceSize() {
     return this.lastPieceSize;
   }
+}
+
+export function getTraySlotVisualState({ piece, selected = false, dragging = false } = {}) {
+  const used = !piece;
+  const lifted = Boolean(piece && dragging);
+  const active = Boolean(piece && selected && !lifted);
+
+  return {
+    drawSlot: true,
+    drawPiece: Boolean(piece && !lifted),
+    drawLiftPlaceholder: lifted,
+    selected: active,
+    used,
+    fill: active ? 0xdff5ea : 0xffffff,
+    fillAlpha: used ? 0.48 : lifted ? 0.72 : 0.96,
+    line: active ? 0x18756b : lifted ? 0x18756b : 0xd8e4dc,
+    lineAlpha: used ? 0.7 : lifted ? 0.58 : 1,
+    lineWidth: active ? 3 : lifted ? 2.2 : 1.5
+  };
 }

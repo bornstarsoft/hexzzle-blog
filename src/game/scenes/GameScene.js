@@ -548,7 +548,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.trayView.render({
       tray: this.tray,
-      selectedIndex: this.selectionState.activePieceIndex
+      selectedIndex: this.selectionState.activePieceIndex,
+      draggingIndex: this.dragState ? this.dragState.slotIndex : null
     });
   }
 

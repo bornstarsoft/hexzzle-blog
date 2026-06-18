@@ -59,9 +59,10 @@ export class ResultPanel {
     }
 
     const records = Array.isArray(stats.localRecords) ? stats.localRecords : [];
-    const visibleRecords = records.slice(0, this.showAllRecords ? 10 : 5);
+    const visibleRecords = this.showAllRecords ? records.slice(0, 10) : [];
     this.recordsListNode.replaceChildren();
-    this.recordsEmptyNode.hidden = records.length > 0;
+    this.recordsListNode.hidden = !this.showAllRecords;
+    this.recordsEmptyNode.hidden = !this.showAllRecords || records.length > 0;
 
     visibleRecords.forEach((record, index) => {
       const item = this.document.createElement('li');
@@ -88,7 +89,7 @@ export class ResultPanel {
     }
 
     this.recordsButton.setAttribute('aria-expanded', this.showAllRecords ? 'true' : 'false');
-    this.recordsButton.textContent = this.showAllRecords ? 'Top 5' : 'Records';
+    this.recordsButton.textContent = this.showAllRecords ? 'Hide Records' : 'Records';
   }
 }
 
