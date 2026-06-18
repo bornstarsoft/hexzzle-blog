@@ -509,20 +509,21 @@ a {
 
   .site-header {
     align-items: center;
-    gap: 6px;
-    width: calc(100% - 20px);
+    gap: 4px;
+    width: calc(100% - 12px);
     min-height: 0;
-    padding: 4px 0;
+    padding: 3px 0;
   }
 
   .site-header__brand {
-    gap: 7px;
-    min-height: 36px;
-    font-size: 0.95rem;
+    flex: 0 0 auto;
+    gap: 6px;
+    min-height: 34px;
+    font-size: 0.9rem;
   }
 
   .brand-mark {
-    width: 24px;
+    width: 22px;
   }
 
   .site-nav {
@@ -536,9 +537,9 @@ a {
 
   .site-nav a {
     flex: 0 0 auto;
-    min-height: 34px;
-    padding: 0 8px;
-    font-size: 0.88rem;
+    min-height: 32px;
+    padding: 0 6px;
+    font-size: 0.8rem;
   }
 
   .hero h1 {
@@ -546,54 +547,30 @@ a {
   }
 
   .hero--game-first {
-    padding: 0 16px 28px;
+    padding: 0 6px 18px;
   }
 
   .page-section--play {
-    padding-top: 18px;
+    padding-top: 4px;
   }
 
-  .hero__content--game-first .eyebrow {
-    display: none;
-  }
-
-  .hero--game-first h1 {
-    font-size: 2.18rem;
-    line-height: 1;
-  }
-
-  .hero--game-first .hero__subtitle {
-    margin-top: 3px;
-    font-size: 0.94rem;
-    line-height: 1.22;
-  }
-
-  .hero__rule {
-    margin-top: 3px;
-    font-size: 0.88rem;
-    line-height: 1.28;
-  }
-
-  .hero--game-first .hero__actions {
-    gap: 14px;
-    margin-top: 6px;
-  }
-
-  .hero--game-first .hero__actions .button {
-    flex: 0 0 auto;
-    min-width: 0;
-    min-height: 32px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-size: 0.9rem;
-    text-decoration: underline;
-    text-decoration-thickness: 0.08em;
-    text-underline-offset: 0.2em;
+  .hero__content--game-first {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .hero__actions .button {
     flex: 1 1 148px;
+  }
+
+  .home-game-helper {
+    display: none;
   }
 
   .feature-grid {
@@ -616,16 +593,10 @@ a {
 
 @media (max-width: 420px) {
   .brand-text--full {
-    display: none;
+    display: inline;
   }
 
   .brand-text--short {
-    display: inline;
-  }
-}
-
-@media (max-width: 380px) {
-  .hero--game-first .hero__actions {
     display: none;
   }
 }

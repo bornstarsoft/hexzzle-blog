@@ -82,7 +82,7 @@ export function getTrayBounds(trayLayout) {
 }
 
 export function getBoardTopReserve(width) {
-  return width < 520 ? 48 : 58;
+  return width < 520 ? 32 : 58;
 }
 
 export function getBoardTrayReserve(width) {
@@ -98,7 +98,7 @@ export function getBoardTrayReserve(width) {
 }
 
 export function getBoardTrayGap(width) {
-  return width < 520 ? 14 : 18;
+  return width < 520 ? 8 : 18;
 }
 
 export function getTrayLayout({ width, height, hexSize }) {
@@ -197,11 +197,11 @@ function getMinimumTraySlotHeight(width) {
 
 function getTrayBottomOffset(width) {
   if (width < 460) {
-    return 46;
+    return 38;
   }
 
   if (width < 700) {
-    return 52;
+    return 46;
   }
 
   if (width < 900) {

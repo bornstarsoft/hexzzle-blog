@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   getBoardBounds,
+  getBoardTopReserve,
+  getBoardTrayGap,
   getGameVisualLayout,
   getGhostHexSize,
   getHexVisualSize,
@@ -59,6 +61,17 @@ test('board and tray layouts stay separated at target viewports', () => {
       board.bottom + layout.boardTrayGap <= tray.top,
       `board/tray overlap at ${viewport.width}x${viewport.height}`
     );
+  }
+});
+
+test('small mobile layout uses compact board and tray reserves', () => {
+  for (const width of [360, 390, 393, 430]) {
+    const layout = getGameVisualLayout({ width, height: 500 });
+
+    assert.ok(getBoardTopReserve(width) <= 34, `board top reserve too large at ${width}px`);
+    assert.ok(getBoardTrayGap(width) <= 10, `board/tray gap too large at ${width}px`);
+    assert.ok(layout.tray.bottomOffset >= 32, `tray safe bottom reserve too small at ${width}px`);
+    assert.ok(layout.tray.bottomOffset <= 40, `tray bottom reserve wastes space at ${width}px`);
   }
 });
 
