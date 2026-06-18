@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { createBloomFeedbackLabel } from '../core/BloomFeedback.js';
 import { BloomResolver } from '../core/BloomResolver.js';
+import { FALLBACK_TILE_COLOR, TILE_COLORS } from '../core/ColorPalette.js';
 import {
   createDragGhostState,
   getDragGhostCellCenters,
@@ -50,15 +51,6 @@ import {
 import { HoneycombBoardView, drawHex } from '../ui/HoneycombBoardView.js';
 import { getStackPointMarkerCenters } from '../ui/StackPointMarkerView.js';
 import { TrayView } from '../ui/TrayView.js';
-
-const COLOR_MAP = {
-  red: 0xef5a5a,
-  blue: 0x2f80ed,
-  yellow: 0xf2c94c,
-  green: 0x3fbf7f,
-  purple: 0x8f65d9,
-  orange: 0xf2994a
-};
 
 const DRAG_MOVE_THRESHOLD = 8;
 const DRAG_DEBUG_PARAM = 'debugDrag';
@@ -1207,7 +1199,7 @@ function isSameCoord(a, b) {
 function drawPieceOnGraphics(graphics, piece, anchorX, anchorY, size, alpha = 1) {
   getPiecePixelOffsetsFromAnchor(piece, size).forEach((cell) => {
     drawHex(graphics, anchorX + cell.x, anchorY + cell.y, size, {
-      fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
+      fill: TILE_COLORS[cell.color] ?? FALLBACK_TILE_COLOR,
       alpha,
       line: 0xffffff,
       lineAlpha: 0.96

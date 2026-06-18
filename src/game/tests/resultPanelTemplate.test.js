@@ -41,3 +41,18 @@ test('result records are hidden by default and open as a compact drawer', () => 
   assert.match(gameCss, /\.result-records--drawer\s*\{[^}]*max-height:/s);
   assert.match(gameCss, /\.result-records__list\s*\{[^}]*overflow-y:\s*auto/s);
 });
+
+test('gameplay status renders above the canvas for mobile visibility', () => {
+  const statusIndex = embed.indexOf('data-hexzzle-status');
+  const shellIndex = embed.indexOf('data-hexzzle-shell');
+  const toolbarIndex = embed.indexOf('hexzzle-toolbar');
+
+  assert.ok(statusIndex !== -1);
+  assert.ok(shellIndex !== -1);
+  assert.ok(toolbarIndex !== -1);
+  assert.ok(statusIndex < shellIndex);
+  assert.ok(statusIndex < toolbarIndex);
+  assert.match(embed, /class="hexzzle-status hexzzle-status--top"[^>]*data-hexzzle-status[^>]*aria-live="polite"/);
+  assert.match(gameCss, /\.hexzzle-status--top\s*\{/);
+  assert.match(gameCss, /@media\s*\(max-width:\s*520px\)\s*\{[\s\S]*\.hexzzle-status--top\s*\{/);
+});

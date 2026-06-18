@@ -1,4 +1,5 @@
 import { axialToPixel, pixelToAxial } from '../core/HexCoordinates.js';
+import { FALLBACK_TILE_COLOR, TILE_COLORS } from '../core/ColorPalette.js';
 import {
   createBloomFeedbackLabel,
   getBloomAnimationOrigins
@@ -12,15 +13,6 @@ import {
   getPieceAxialOffsetsFromAnchor,
   getPieceCellCentersForAnchor
 } from '../core/PieceVisualGeometry.js';
-
-const COLOR_MAP = {
-  red: 0xef5a5a,
-  blue: 0x2f80ed,
-  yellow: 0xf2c94c,
-  green: 0x3fbf7f,
-  purple: 0x8f65d9,
-  orange: 0xf2994a
-};
 
 export class HoneycombBoardView {
   constructor(scene) {
@@ -216,7 +208,7 @@ export class HoneycombBoardView {
 
     plans.forEach((plan, planIndex) => {
       const targetPoint = this.toScreen(plan.targetCell);
-      const color = COLOR_MAP[plan.color] ?? 0xf2c94c;
+      const color = TILE_COLORS[plan.color] ?? FALLBACK_TILE_COLOR;
       const target = this.trackEffect(this.scene.add.container(targetPoint.x, targetPoint.y).setDepth(68).setAlpha(0).setScale(0.84));
       const targetHex = this.scene.add.graphics();
       const countSequence = plan.targetCountSequence ?? [plan.targetStartCount ?? 1, plan.totalCount];
@@ -356,7 +348,7 @@ export class HoneycombBoardView {
       const pulse = this.trackEffect(this.scene.add.container(point.x, point.y).setDepth(63));
       const hex = this.scene.add.graphics();
       drawHex(hex, 0, 0, this.layout.hexSize * 1.04, {
-        fill: COLOR_MAP[merge.color] ?? 0xf2c94c,
+        fill: TILE_COLORS[merge.color] ?? FALLBACK_TILE_COLOR,
         alpha: 0.24,
         line: 0xffffff,
         lineAlpha: 0.95
@@ -420,7 +412,7 @@ export class HoneycombBoardView {
 
     origins.forEach((cell, index) => {
       const point = this.toScreen(cell);
-      const color = COLOR_MAP[cell.color] ?? 0xf2c94c;
+      const color = TILE_COLORS[cell.color] ?? FALLBACK_TILE_COLOR;
       const bloom = this.trackEffect(this.scene.add.container(point.x, point.y).setDepth(62).setScale(0.82));
       const hex = this.scene.add.graphics();
       const ring = this.scene.add.graphics();
@@ -496,7 +488,7 @@ export class HoneycombBoardView {
   }
 
   drawStackedCell(point, color, count) {
-    this.drawStackedTileOnGraphics(this.graphics, point.x, point.y, COLOR_MAP[color] ?? 0xf2c94c, count, 0.92);
+    this.drawStackedTileOnGraphics(this.graphics, point.x, point.y, TILE_COLORS[color] ?? FALLBACK_TILE_COLOR, count, 0.92);
   }
 
   drawStackedTileOnGraphics(graphics, x, y, color, count, alpha = 0.92) {

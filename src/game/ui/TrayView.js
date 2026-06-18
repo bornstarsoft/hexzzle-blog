@@ -2,6 +2,7 @@ import {
   getGameVisualLayout,
   getTrayPieceHexSize
 } from '../core/HexVisualLayout.js';
+import { FALLBACK_TILE_COLOR, TILE_COLORS } from '../core/ColorPalette.js';
 import {
   getClampedCenteredPiecePoint,
   getCenteredPieceAnchorPoint,
@@ -9,15 +10,6 @@ import {
 } from '../core/PieceVisualGeometry.js';
 import { drawHex } from './HoneycombBoardView.js';
 import { drawStackPointMarkers } from './StackPointMarkerView.js';
-
-const COLOR_MAP = {
-  red: 0xef5a5a,
-  blue: 0x2f80ed,
-  yellow: 0xf2c94c,
-  green: 0x3fbf7f,
-  purple: 0x8f65d9,
-  orange: 0xf2994a
-};
 
 export class TrayView {
   constructor(scene) {
@@ -86,7 +78,7 @@ export class TrayView {
 
     centers.forEach((cell) => {
       drawHex(this.graphics, cell.x, cell.y, size, {
-        fill: COLOR_MAP[cell.color] ?? 0xf2c94c,
+        fill: TILE_COLORS[cell.color] ?? FALLBACK_TILE_COLOR,
         alpha: 0.94,
         line: 0xffffff,
         lineAlpha: 0.9
