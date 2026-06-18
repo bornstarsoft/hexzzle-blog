@@ -33,6 +33,7 @@ export class HoneycombBoardView {
       centerY: 0,
       hexSize: 30
     };
+    this.effectObjects = new Set();
   }
 
   render({ board, selectedPiece, hoverCoord, previewValid, previewTargets = [], previewStackHints = [], showOpenAnchors }) {
@@ -183,7 +184,7 @@ export class HoneycombBoardView {
       return;
     }
 
-    const flash = this.scene.add.graphics();
+    const flash = this.trackEffect(this.scene.add.graphics());
     flash.setDepth(45);
     const size = getInvalidFeedbackHexSize(this.layout.hexSize);
     const anchorPoint = this.toScreen(anchor);
@@ -199,7 +200,7 @@ export class HoneycombBoardView {
       targets: flash,
       alpha: 0,
       duration,
-      onComplete: () => flash.destroy()
+      onComplete: () => this.destroyEffect(flash)
     });
   }
 
@@ -216,7 +217,7 @@ export class HoneycombBoardView {
     plans.forEach((plan, planIndex) => {
       const targetPoint = this.toScreen(plan.targetCell);
       const color = COLOR_MAP[plan.color] ?? 0xf2c94c;
-      const target = this.scene.add.container(targetPoint.x, targetPoint.y).setDepth(68).setAlpha(0).setScale(0.84);
+      const target = this.trackEffect(this.scene.add.container(targetPoint.x, targetPoint.y).setDepth(68).setAlpha(0).setScale(0.84));
       const targetHex = this.scene.add.graphics();
       const countSequence = plan.targetCountSequence ?? [plan.targetStartCount ?? 1, plan.totalCount];
       let sequenceIndex = 0;
@@ -248,7 +249,7 @@ export class HoneycombBoardView {
         const delay = Math.min(210, planIndex * 35 + sourceIndex * 64);
         maxDelay = Math.max(maxDelay, delay);
 
-        const cover = this.scene.add.graphics().setDepth(61);
+        const cover = this.trackEffect(this.scene.add.graphics().setDepth(61));
         drawHex(cover, sourcePoint.x, sourcePoint.y, this.layout.hexSize * 1.02, {
           fill: 0xf7fbf8,
           alpha: 0.86,
@@ -284,7 +285,7 @@ export class HoneycombBoardView {
             this.drawStackedTileOnGraphics(targetHex, 0, 0, color, countSequence[sequenceIndex] ?? plan.totalCount, 0.82);
             targetLabel.setText(String(countSequence[sequenceIndex] ?? plan.totalCount));
             this.drawTargetReceivePulse(targetPoint, color, 0, Math.min(210, duration), overlays);
-            traveller.destroy();
+            this.destroyEffect(traveller);
           }
         });
       });
@@ -292,9 +293,7 @@ export class HoneycombBoardView {
 
     this.scene.time.delayedCall(duration + settleDelay + maxDelay, () => {
       overlays.forEach((overlay) => {
-        if (overlay?.active) {
-          overlay.destroy();
-        }
+        this.destroyEffect(overlay);
       });
       onComplete();
     });
@@ -305,7 +304,7 @@ export class HoneycombBoardView {
   }
 
   createTravellingStackTile(point, color, count) {
-    const tile = this.scene.add.container(point.x, point.y).setDepth(69).setScale(0.98);
+    const tile = this.trackEffect(this.scene.add.container(point.x, point.y).setDepth(69).setScale(0.98));
     const hex = this.scene.add.graphics();
     drawHex(hex, 0, 0, this.layout.hexSize * 1.02, {
       fill: color,
@@ -354,7 +353,7 @@ export class HoneycombBoardView {
   showLegacyMergePulse(result) {
     result.merges.forEach((merge) => {
       const point = this.toScreen(merge.target);
-      const pulse = this.scene.add.container(point.x, point.y).setDepth(63);
+      const pulse = this.trackEffect(this.scene.add.container(point.x, point.y).setDepth(63));
       const hex = this.scene.add.graphics();
       drawHex(hex, 0, 0, this.layout.hexSize * 1.04, {
         fill: COLOR_MAP[merge.color] ?? 0xf2c94c,
@@ -363,14 +362,14 @@ export class HoneycombBoardView {
         lineAlpha: 0.95
       });
       pulse.add(hex);
-      const label = this.scene.add.text(point.x, point.y - this.layout.hexSize * 1.05, `${merge.totalCount}/6`, {
+      const label = this.trackEffect(this.scene.add.text(point.x, point.y - this.layout.hexSize * 1.05, `${merge.totalCount}/6`, {
         fontFamily: 'Inter, Arial, sans-serif',
         fontSize: `${Math.round(Math.max(16, this.layout.hexSize * 0.56))}px`,
         fontStyle: '800',
         color: '#17352e',
         backgroundColor: 'rgba(255,255,255,0.86)',
         padding: { x: 7, y: 3 }
-      }).setOrigin(0.5).setDepth(76);
+      }).setOrigin(0.5).setDepth(76));
 
       this.scene.tweens.add({
         targets: pulse,
@@ -379,7 +378,7 @@ export class HoneycombBoardView {
         scaleY: 1.18,
         duration: this.scene.configData.gameFeel?.mergeAnimationMs ?? 240,
         ease: 'Sine.easeOut',
-        onComplete: () => pulse.destroy()
+        onComplete: () => this.destroyEffect(pulse)
       });
       this.scene.tweens.add({
         targets: label,
@@ -387,7 +386,7 @@ export class HoneycombBoardView {
         alpha: 0,
         duration: 420,
         ease: 'Sine.easeOut',
-        onComplete: () => label.destroy()
+        onComplete: () => this.destroyEffect(label)
       });
     });
   }
@@ -400,14 +399,14 @@ export class HoneycombBoardView {
 
     const duration = Math.min(550, Math.max(350, this.scene.configData.gameFeel?.bloomAnimationMs ?? 460));
     const center = getCellCenter(origins.map((cell) => this.toScreen(cell)));
-    const label = this.scene.add.text(center.x, center.y - this.layout.hexSize * 0.6, createBloomFeedbackLabel(result), {
+    const label = this.trackEffect(this.scene.add.text(center.x, center.y - this.layout.hexSize * 0.6, createBloomFeedbackLabel(result), {
       fontFamily: 'Inter, Arial, sans-serif',
       fontSize: `${Math.round(Math.max(22, this.layout.hexSize * 0.82))}px`,
       fontStyle: '800',
       color: '#0f5b55',
       backgroundColor: 'rgba(255,255,255,0.88)',
       padding: { x: 10, y: 5 }
-    }).setOrigin(0.5).setDepth(75).setScale(0.9);
+    }).setOrigin(0.5).setDepth(75).setScale(0.9));
 
     this.scene.tweens.add({
       targets: label,
@@ -416,13 +415,13 @@ export class HoneycombBoardView {
       scale: 1.12,
       duration,
       ease: 'Cubic.easeOut',
-      onComplete: () => label.destroy()
+      onComplete: () => this.destroyEffect(label)
     });
 
     origins.forEach((cell, index) => {
       const point = this.toScreen(cell);
       const color = COLOR_MAP[cell.color] ?? 0xf2c94c;
-      const bloom = this.scene.add.container(point.x, point.y).setDepth(62).setScale(0.82);
+      const bloom = this.trackEffect(this.scene.add.container(point.x, point.y).setDepth(62).setScale(0.82));
       const hex = this.scene.add.graphics();
       const ring = this.scene.add.graphics();
       const sparkle = this.scene.add.graphics();
@@ -457,21 +456,21 @@ export class HoneycombBoardView {
         duration,
         delay,
         ease: 'Cubic.easeOut',
-        onComplete: () => bloom.destroy()
+        onComplete: () => this.destroyEffect(bloom)
       });
     });
   }
 
   showScorePop(anchor, label) {
     const point = this.toScreen(anchor);
-    const text = this.scene.add.text(point.x, point.y - this.layout.hexSize, label, {
+    const text = this.trackEffect(this.scene.add.text(point.x, point.y - this.layout.hexSize, label, {
       fontFamily: 'Inter, Arial, sans-serif',
       fontSize: '18px',
       fontStyle: '700',
       color: '#17352e',
       backgroundColor: 'rgba(255,255,255,0.82)',
       padding: { x: 8, y: 4 }
-    }).setOrigin(0.5).setDepth(76);
+    }).setOrigin(0.5).setDepth(76));
 
     this.scene.tweens.add({
       targets: text,
@@ -479,7 +478,7 @@ export class HoneycombBoardView {
       alpha: 0,
       duration: 620,
       ease: 'Sine.easeOut',
-      onComplete: () => text.destroy()
+      onComplete: () => this.destroyEffect(text)
     });
   }
 
@@ -535,6 +534,34 @@ export class HoneycombBoardView {
 
       this.textGroup.add(label);
     });
+  }
+
+  trackEffect(object) {
+    if (object) {
+      this.effectObjects.add(object);
+    }
+
+    return object;
+  }
+
+  destroyEffect(object) {
+    if (!object) {
+      return;
+    }
+
+    this.effectObjects.delete(object);
+    if (object.active) {
+      object.destroy();
+    }
+  }
+
+  clearTransientEffects() {
+    this.effectObjects.forEach((object) => {
+      if (object?.active) {
+        object.destroy();
+      }
+    });
+    this.effectObjects.clear();
   }
 }
 

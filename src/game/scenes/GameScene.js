@@ -14,6 +14,11 @@ import {
 import { HexBoardModel } from '../core/HexBoardModel.js';
 import { getGhostHexSize, shouldShowOpenAnchorHints } from '../core/HexVisualLayout.js';
 import {
+  canCommitDrop,
+  canSelectTrayPiece,
+  canStartTrayDrag
+} from '../core/InteractionGate.js';
+import {
   getMaxCellCenterDelta,
   getPieceCellCentersForAnchor,
   getPiecePixelOffsetsFromAnchor
@@ -108,7 +113,9 @@ export class GameScene extends Phaser.Scene {
     this.placements = 0;
     this.undoSnapshot = null;
     this.isGameOver = false;
-    this.inputLockedUntil = 0;
+    this.isResultOpen = false;
+    this.isBoardAnimating = false;
+    this.boardAnimationCount = 0;
     this.hoverCoord = null;
     this.resolutionAnimationToken = 0;
     this.statusMessage = 'Tap a piece, then stack matching colors.';
@@ -133,7 +140,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePointerMove(pointer) {
-    if (this.isGameOver || this.isInputLocked() || !this.hasTrayPieces()) {
+    if (this.isGameOver || this.isResultOpen || !this.hasTrayPieces()) {
       return;
     }
 
@@ -154,7 +161,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePointerDown(pointer) {
-    if (this.isGameOver || this.isInputLocked()) {
+    if (!canSelectTrayPiece({
+      isGameOver: this.isGameOver,
+      isResultOpen: this.isResultOpen
+    })) {
       return;
     }
 
@@ -228,6 +238,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   selectTrayPiece(index) {
+    if (!canSelectTrayPiece({
+      isGameOver: this.isGameOver,
+      isResultOpen: this.isResultOpen
+    })) {
+      return;
+    }
+
     const nextState = selectTrayPiece(this.selectionState, this.tray, index);
     if (nextState.activePieceIndex === this.selectionState.activePieceIndex && !this.tray[index]) {
       return;
@@ -241,7 +258,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   startTrayInteraction(index, pointer) {
-    if (!this.tray[index] || this.dragState) {
+    if (!canStartTrayDrag({
+      isGameOver: this.isGameOver,
+      isResultOpen: this.isResultOpen,
+      hasPiece: Boolean(this.tray[index]),
+      isDragging: Boolean(this.dragState)
+    })) {
       return;
     }
 
@@ -291,7 +313,13 @@ export class GameScene extends Phaser.Scene {
   placeActivePiece(preferredAnchor) {
     const piece = getActiveTrayPiece(this.selectionState, this.tray);
 
-    if (!piece) {
+    if (!canCommitDrop({
+      isGameOver: this.isGameOver,
+      isResultOpen: this.isResultOpen,
+      hasPiece: Boolean(piece),
+      isBoardAnimating: this.isBoardAnimating,
+      logicalBoardSettled: true
+    })) {
       this.emitStatus('Choose a piece first.');
       return;
     }
@@ -329,6 +357,11 @@ export class GameScene extends Phaser.Scene {
     this.selectionState = clearActivePieceAfterPlacement(used);
     this.previewState = null;
     this.hoverCoord = null;
+    const hasStackResolution = bloomResult.gatherPlans.length > 0;
+
+    if (hasStackResolution) {
+      this.resolver.apply(this.board, bloomResult);
+    }
 
     if (!this.hasTrayPieces()) {
       this.tray = this.generator.generateTray({
@@ -345,7 +378,7 @@ export class GameScene extends Phaser.Scene {
     this.playSoundCues(createPlacementSoundCues());
     this.emitStats();
 
-    if (bloomResult.gatherPlans.length > 0) {
+    if (hasStackResolution) {
       this.playStackResolutionAnimation(bloomResult);
       return;
     }
@@ -358,15 +391,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   playStackResolutionAnimation(bloomResult) {
-    const animationToken = this.resolutionAnimationToken + 1;
-    this.resolutionAnimationToken = animationToken;
+    const animationToken = this.resolutionAnimationToken;
     const gatherMs = this.getStackGatherAnimationMs();
     const settleMs = this.getStackSettleMs(bloomResult);
     const bloomMs = bloomResult.groupsCleared > 0
       ? this.configData.gameFeel?.bloomAnimationMs ?? 480
       : 0;
 
-    this.lockInputFor(gatherMs + settleMs + bloomMs);
+    this.beginBoardAnimation();
     this.emitStatus(bloomResult.groupsCleared > 0
       ? 'Stack reaches 6. Bloom!'
       : 'Same colors gather into one stack.');
@@ -377,10 +409,10 @@ export class GameScene extends Phaser.Scene {
       settleDelay: settleMs,
       onComplete: () => {
         if (animationToken !== this.resolutionAnimationToken) {
+          this.finishBoardAnimation();
           return;
         }
 
-        this.resolver.apply(this.board, bloomResult);
         this.redraw();
 
         if (bloomResult.groupsCleared > 0) {
@@ -388,6 +420,7 @@ export class GameScene extends Phaser.Scene {
           this.playSoundCues(createBloomSoundCues(bloomResult));
           this.emitStatus(createBloomMessage(bloomResult));
           this.time.delayedCall(bloomMs, () => {
+            this.finishBoardAnimation();
             if (animationToken !== this.resolutionAnimationToken) {
               return;
             }
@@ -398,6 +431,7 @@ export class GameScene extends Phaser.Scene {
           return;
         }
 
+        this.finishBoardAnimation();
         this.emitStatus(createMergeMessage(bloomResult));
         this.checkGameOver();
         this.emitStats();
@@ -426,6 +460,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isGameOver = true;
+    this.isResultOpen = true;
     const previousBest = this.storage.getBestScore();
     const bestScore = this.storage.saveBestScore(this.scoreModel.score);
     const createdAt = new Date().toISOString();
@@ -469,8 +504,8 @@ export class GameScene extends Phaser.Scene {
     this.scoreModel.restore(this.undoSnapshot.score);
     this.undoSnapshot = null;
     this.isGameOver = false;
-    this.inputLockedUntil = 0;
-    this.resolutionAnimationToken += 1;
+    this.isResultOpen = false;
+    this.cancelBoardAnimations();
     this.emitStatus('Move undone.');
     this.redraw();
     this.emitStats();
@@ -493,9 +528,9 @@ export class GameScene extends Phaser.Scene {
     this.placements = 0;
     this.undoSnapshot = null;
     this.isGameOver = false;
-    this.inputLockedUntil = 0;
+    this.isResultOpen = false;
     this.hoverCoord = null;
-    this.resolutionAnimationToken += 1;
+    this.cancelBoardAnimations();
     this.startedAtMs = Date.now();
     this.emitStatus('New game started. Stack matching colors. Reach 6.');
     this.redraw();
@@ -857,12 +892,21 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  isInputLocked() {
-    return this.time.now < this.inputLockedUntil;
+  beginBoardAnimation() {
+    this.boardAnimationCount += 1;
+    this.isBoardAnimating = true;
   }
 
-  lockInputFor(duration) {
-    this.inputLockedUntil = Math.max(this.inputLockedUntil, this.time.now + duration);
+  finishBoardAnimation() {
+    this.boardAnimationCount = Math.max(0, this.boardAnimationCount - 1);
+    this.isBoardAnimating = this.boardAnimationCount > 0;
+  }
+
+  cancelBoardAnimations() {
+    this.boardAnimationCount = 0;
+    this.isBoardAnimating = false;
+    this.resolutionAnimationToken += 1;
+    this.boardView?.clearTransientEffects?.();
   }
 
   warnIfPreviewDiverged(preview) {
