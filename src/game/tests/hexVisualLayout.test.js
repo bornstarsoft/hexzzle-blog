@@ -75,6 +75,27 @@ test('small mobile layout uses compact board and tray reserves', () => {
   }
 });
 
+test('mobile board uses more of the 95 percent game panel without clipping tray', () => {
+  const cases = [
+    { viewportWidth: 360, panelHeight: 498 },
+    { viewportWidth: 390, panelHeight: 538 },
+    { viewportWidth: 393, panelHeight: 517 },
+    { viewportWidth: 430, panelHeight: 548 }
+  ];
+
+  for (const item of cases) {
+    const panelWidth = Math.round(item.viewportWidth * 0.95);
+    const layout = getGameVisualLayout({ width: panelWidth, height: item.panelHeight });
+    const board = getBoardBounds(layout.board);
+    const tray = getTrayBounds(layout.tray);
+    const boardWidthRatio = (board.right - board.left) / panelWidth;
+
+    assert.ok(boardWidthRatio >= 0.565, `mobile board ratio too small at ${item.viewportWidth}px`);
+    assert.ok(board.bottom + layout.boardTrayGap <= tray.top, `board/tray overlap at ${item.viewportWidth}px`);
+    assert.ok(tray.bottom <= item.panelHeight - 30, `tray safe reserve too small at ${item.viewportWidth}px`);
+  }
+});
+
 test('open anchor center dots are hidden outside debug drag mode', () => {
   assert.equal(shouldShowOpenAnchorHints({
     selectedPiece: { id: 'piece' },

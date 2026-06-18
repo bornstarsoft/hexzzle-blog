@@ -6,6 +6,9 @@ import {
   createDragGhostState,
   getDragGhostCellCenters,
   getGhostAnchorPoint,
+  getPreviewAnchorKey,
+  isActiveDragPointer,
+  shouldRefreshDragPreview,
   updateDragGhostCenter
 } from '../core/DragGhostTracker.js';
 import { HexBoardModel } from '../core/HexBoardModel.js';
@@ -77,6 +80,8 @@ export class GameScene extends Phaser.Scene {
     });
     this.selectionState = createTraySelectionState();
     this.dragState = null;
+    this.pendingDragPointer = null;
+    this.dragFrameRequest = null;
     this.previewState = null;
     this.debugDragEnabled = isDragDebugEnabled();
     this.dragDebugGraphics = this.debugDragEnabled ? this.add.graphics().setDepth(130) : null;
@@ -124,7 +129,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.dragState) {
-      this.updateDrag(pointer);
+      this.queueDragUpdate(pointer);
       return;
     }
 
@@ -177,6 +182,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.flushDragUpdate(pointer);
+
     if (!state.moved) {
       this.destroyDragGhost(state);
       this.dragState = null;
@@ -187,7 +194,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.updateDrag(pointer);
     const preview = this.previewState;
     const drop = this.resolveDrop(state.piece, preview?.localAnchor ?? null);
 
@@ -244,6 +250,7 @@ export class GameScene extends Phaser.Scene {
     this.dragState = {
       slotIndex: index,
       pointerId: tracker.pointerId,
+      domPointerId: pointer?.event?.pointerId,
       piece,
       returnOrigin: this.trayView.getPieceAnchorPoint(index, piece) ?? this.trayView.getSlotCenter(index) ?? { x: pointer.x, y: pointer.y },
       pointerPoint: tracker.pointerPoint,
@@ -256,10 +263,12 @@ export class GameScene extends Phaser.Scene {
       ghostSize: tracker.boardCellSize,
       ghost: null,
       ghostMarkers: null,
+      previewAnchorKey: null,
       moved: false,
       returning: false,
       startPoint: { x: pointer.x, y: pointer.y }
     };
+    this.captureActivePointer(pointer);
     this.createDragGhost(this.dragState);
     this.renderDragDebug(pointer, this.dragState.ghostPosition, null, this.dragState);
     this.previewState = null;
@@ -543,6 +552,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (!isActiveDragPointer(state, pointer)) {
+      return;
+    }
+
     const tracker = updateDragGhostCenter(state, { pointer });
     state.pointerPoint = tracker.pointerPoint;
     state.ghostPosition = tracker.ghostPosition;
@@ -559,20 +572,62 @@ export class GameScene extends Phaser.Scene {
 
     state.moved = true;
     const anchor = this.getNearestBoardAnchor(state.ghostAnchorPoint, { tolerance: this.getPreviewTolerance() });
-    this.previewState = this.resolvePreview(state.piece, anchor);
-    this.hoverCoord = this.previewState.previewAnchor;
-    this.warnIfPreviewDiverged(this.previewState);
-    this.renderDragDebug(pointer, state.ghostPosition, this.previewState, state);
+    if (shouldRefreshDragPreview(state, anchor)) {
+      state.previewAnchorKey = getPreviewAnchorKey(anchor);
+      this.previewState = this.resolvePreview(state.piece, anchor);
+      this.hoverCoord = this.previewState.previewAnchor;
+      this.warnIfPreviewDiverged(this.previewState);
+      this.renderDragDebug(pointer, state.ghostPosition, this.previewState, state);
 
-    if (this.previewState.valid) {
-      this.emitStatus('Release to place.');
-    } else if (this.previewState.previewAnchor) {
-      this.emitStatus('Not there. Try an open honeycomb space.');
-    } else {
-      this.emitStatus('Drag over the Honeycomb Board.');
+      if (this.previewState.valid) {
+        this.emitStatus('Release to place.');
+      } else if (this.previewState.previewAnchor) {
+        this.emitStatus('Not there. Try an open honeycomb space.');
+      } else {
+        this.emitStatus('Drag over the Honeycomb Board.');
+      }
+
+      this.redraw();
+      return;
     }
 
-    this.redraw();
+    this.renderDragDebug(pointer, state.ghostPosition, this.previewState, state);
+  }
+
+  queueDragUpdate(pointer) {
+    if (!this.dragState || !isActiveDragPointer(this.dragState, pointer)) {
+      return;
+    }
+
+    this.pendingDragPointer = snapshotPointer(pointer);
+    if (this.dragFrameRequest !== null) {
+      return;
+    }
+
+    this.dragFrameRequest = getFrameGlobal().requestAnimationFrame(() => {
+      this.dragFrameRequest = null;
+      const nextPointer = this.pendingDragPointer;
+      this.pendingDragPointer = null;
+      if (nextPointer) {
+        this.updateDrag(nextPointer);
+      }
+    });
+  }
+
+  flushDragUpdate(pointer) {
+    const queuedPointer = this.pendingDragPointer ?? snapshotPointer(pointer);
+    this.cancelQueuedDragUpdate();
+    if (queuedPointer) {
+      this.updateDrag(queuedPointer);
+    }
+  }
+
+  cancelQueuedDragUpdate() {
+    if (this.dragFrameRequest !== null) {
+      getFrameGlobal().cancelAnimationFrame(this.dragFrameRequest);
+      this.dragFrameRequest = null;
+    }
+    this.pendingDragPointer = null;
   }
 
   getDragOffset() {
@@ -665,6 +720,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   destroyDragGhost(state = this.dragState) {
+    this.cancelQueuedDragUpdate();
+    this.releaseActivePointer(state);
     if (state?.ghost) {
       this.tweens.killTweensOf(state.ghost);
       state.ghost.destroy();
@@ -678,8 +735,39 @@ export class GameScene extends Phaser.Scene {
   }
 
   clearDragState() {
+    this.cancelQueuedDragUpdate();
     this.destroyDragGhost();
     this.dragState = null;
+  }
+
+  captureActivePointer(pointer) {
+    const domPointerId = pointer?.event?.pointerId;
+    const canvas = this.game?.canvas;
+    if (domPointerId === undefined || !canvas?.setPointerCapture) {
+      return;
+    }
+
+    try {
+      canvas.setPointerCapture(domPointerId);
+    } catch (error) {
+      // Pointer capture is a responsiveness hint; browsers may reject it after cancellation.
+    }
+  }
+
+  releaseActivePointer(state) {
+    const domPointerId = state?.domPointerId;
+    const canvas = this.game?.canvas;
+    if (domPointerId === undefined || !canvas?.releasePointerCapture) {
+      return;
+    }
+
+    try {
+      if (!canvas.hasPointerCapture || canvas.hasPointerCapture(domPointerId)) {
+        canvas.releasePointerCapture(domPointerId);
+      }
+    } catch (error) {
+      // The pointer may already be released by pointercancel or pointerupoutside.
+    }
   }
 
   clearPlacementPreview() {
@@ -876,6 +964,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   emitStatus(message) {
+    if (message === this.statusMessage) {
+      return;
+    }
+
     this.statusMessage = message;
     window.dispatchEvent(new CustomEvent('hexzzle:status', {
       detail: { message }
@@ -918,6 +1010,27 @@ function createMergeMessage(result) {
 
 function getDragGhostCenter(state) {
   return state.ghostCenter ?? state.returnOrigin;
+}
+
+function snapshotPointer(pointer) {
+  if (!pointer) {
+    return null;
+  }
+
+  return {
+    id: pointer.id,
+    x: pointer.x,
+    y: pointer.y,
+    event: pointer.event
+  };
+}
+
+function getFrameGlobal() {
+  const globalObject = getDragDebugGlobal();
+  return {
+    requestAnimationFrame: globalObject.requestAnimationFrame?.bind(globalObject) ?? ((callback) => setTimeout(callback, 16)),
+    cancelAnimationFrame: globalObject.cancelAnimationFrame?.bind(globalObject) ?? clearTimeout
+  };
 }
 
 function isDragDebugEnabled() {

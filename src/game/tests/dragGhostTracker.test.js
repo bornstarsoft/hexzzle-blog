@@ -7,6 +7,9 @@ import {
   getGhostAnchorPoint,
   getPieceAnchorLocalOffset,
   getPieceCellLocalOffsets,
+  getPreviewAnchorKey,
+  isActiveDragPointer,
+  shouldRefreshDragPreview,
   updateDragGhostCenter
 } from '../core/DragGhostTracker.js';
 
@@ -70,6 +73,36 @@ test('updates the drag ghost from current pointer coordinates only', () => {
   assert.deepEqual(next.ghostCenter, { x: 250, y: 398 });
   assert.equal(Math.round(next.ghostAnchorPoint.x), 250);
   assert.equal(Math.round(next.ghostAnchorPoint.y), 398);
+});
+
+test('ignores non-active drag pointers', () => {
+  const state = createDragGhostState({
+    pointer: { id: 9, x: 120, y: 600 },
+    pieceIndex: 0,
+    piece: duoLinePiece,
+    boardCellSize: 32
+  });
+
+  assert.equal(isActiveDragPointer(state, { id: 9 }), true);
+  assert.equal(isActiveDragPointer(state, { id: 10 }), false);
+  assert.equal(updateDragGhostCenter(state, { pointer: { id: 10, x: 250, y: 430 } }), state);
+});
+
+test('preview recalculation is needed only when the local anchor changes', () => {
+  const state = createDragGhostState({
+    pointer: { id: 9, x: 120, y: 600 },
+    pieceIndex: 0,
+    piece: duoLinePiece,
+    boardCellSize: 32
+  });
+
+  assert.equal(getPreviewAnchorKey({ q: 0, r: 1 }), '0,1');
+  assert.equal(shouldRefreshDragPreview(state, { q: 0, r: 1 }), true);
+
+  state.previewAnchorKey = getPreviewAnchorKey({ q: 0, r: 1 });
+  assert.equal(shouldRefreshDragPreview(state, { q: 0, r: 1 }), false);
+  assert.equal(shouldRefreshDragPreview(state, { q: 1, r: 0 }), true);
+  assert.equal(shouldRefreshDragPreview(state, null), true);
 });
 
 test('computes piece anchor local offset from canonical first-cell anchor', () => {

@@ -38,7 +38,7 @@ export function createDragGhostState({
 }
 
 export function updateDragGhostCenter(state, { pointer }) {
-  if (!state || !pointer || (state.pointerId !== undefined && pointer.id !== state.pointerId)) {
+  if (!isActiveDragPointer(state, pointer)) {
     return state;
   }
 
@@ -57,6 +57,26 @@ export function updateDragGhostCenter(state, { pointer }) {
     ghostAnchorPoint,
     cellCenters: getPieceCellCentersForAnchor(ghostAnchorPoint, state.piece, state.boardCellSize)
   };
+}
+
+export function isActiveDragPointer(state, pointer) {
+  if (!state || !pointer) {
+    return false;
+  }
+
+  return state.pointerId === undefined || pointer.id === undefined || pointer.id === state.pointerId;
+}
+
+export function getPreviewAnchorKey(anchor) {
+  return anchor ? `${anchor.q},${anchor.r}` : 'none';
+}
+
+export function shouldRefreshDragPreview(state, anchor) {
+  if (!state) {
+    return false;
+  }
+
+  return state.previewAnchorKey !== getPreviewAnchorKey(anchor);
 }
 
 export function getGhostCenterFromPointer(pointer, offset = DEFAULT_DRAG_GHOST_OFFSET) {

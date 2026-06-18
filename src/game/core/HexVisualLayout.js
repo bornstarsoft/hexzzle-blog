@@ -82,7 +82,7 @@ export function getTrayBounds(trayLayout) {
 }
 
 export function getBoardTopReserve(width) {
-  return width < 520 ? 32 : 58;
+  return width < 520 ? 24 : 58;
 }
 
 export function getBoardTrayReserve(width) {
@@ -98,7 +98,7 @@ export function getBoardTrayReserve(width) {
 }
 
 export function getBoardTrayGap(width) {
-  return width < 520 ? 8 : 18;
+  return width < 520 ? 6 : 18;
 }
 
 export function getTrayLayout({ width, height, hexSize }) {
@@ -159,7 +159,7 @@ function getBoardHalfHeight(hexSize) {
 }
 
 function getTrayPieceCapacity(width) {
-  return Math.max(0, (getTraySlotWidth(width) - 4) / MAX_TRAY_PIECE_LINE_WIDTH_FACTOR);
+  return Math.max(0, (getTraySlotWidth(width) - getTrayPieceSideInset(width)) / MAX_TRAY_PIECE_LINE_WIDTH_FACTOR);
 }
 
 function getTraySlotWidth(width) {
@@ -169,7 +169,7 @@ function getTraySlotWidth(width) {
 
 function getTrayTotalWidth(width) {
   if (width < 520) {
-    return Math.max(0, width - 8);
+    return Math.max(0, width);
   }
 
   if (width < 900) {
@@ -181,6 +181,10 @@ function getTrayTotalWidth(width) {
 
 function getTrayGap(width) {
   return width < 520 ? 2 : 10;
+}
+
+function getTrayPieceSideInset(width) {
+  return width < 520 ? 1 : 4;
 }
 
 function getMinimumTraySlotHeight(width) {
