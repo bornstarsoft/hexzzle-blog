@@ -1,9 +1,12 @@
+import { LocalRecordsService } from './LocalRecordsService.js';
+
 const BEST_SCORE_KEY = 'hexzzle.bestScore';
 const SOUND_KEY = 'hexzzle.soundEnabled';
 
 export class StorageService {
   constructor(storage = globalThis.localStorage) {
     this.storage = storage;
+    this.localRecords = new LocalRecordsService(storage);
   }
 
   getBestScore() {
@@ -22,5 +25,13 @@ export class StorageService {
 
   setSoundEnabled(enabled) {
     this.storage?.setItem(SOUND_KEY, enabled ? 'true' : 'false');
+  }
+
+  getLocalRecordsState() {
+    return this.localRecords.getState();
+  }
+
+  saveLocalRecord(result, options = {}) {
+    return this.localRecords.saveResult(result, options);
   }
 }

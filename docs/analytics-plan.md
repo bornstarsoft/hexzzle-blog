@@ -24,8 +24,9 @@ Hexzzle MVP should launch without unnecessary third-party tracking.
 - Mode: `classic` or future `daily`
 - Score bucket
 - Bloom count bucket
-- Best chain
-- Longest group bucket
+- Best Stack bucket
+- Overbloom count bucket
+- Pieces placed bucket
 - Viewport category: phone, tablet, desktop
 
 ## Guardrails

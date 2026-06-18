@@ -3,17 +3,17 @@ export const CANONICAL_PLAY_URL = 'https://hexzzle.com/play/';
 export function createShareText({
   score,
   totalBlooms,
-  bestChain,
+  bestStack,
   longestGroup,
+  overblooms,
   url
 }) {
   return [
     'Hexzzle 🐝',
     `Score: ${formatNumber(score)}`,
     `Blooms: ${totalBlooms}`,
-    `Best Chain: x${bestChain}`,
-    `Best Stack: ${longestGroup}`,
-    '🌸🌸🌸🌸⬡',
+    `Best Stack: ${bestStack ?? longestGroup ?? 0}`,
+    `Overblooms: ${overblooms ?? 0}`,
     `Play: ${url}`
   ].join('\n');
 }

@@ -31,6 +31,7 @@ import {
 } from '../core/PlacementResolver.js';
 import { PieceGenerator } from '../core/PieceGenerator.js';
 import { cloneTray } from '../core/PieceModel.js';
+import { createFinalResultStats } from '../core/ResultStats.js';
 import { ScoreModel } from '../core/ScoreModel.js';
 import { StorageService } from '../core/StorageService.js';
 import {
@@ -111,6 +112,7 @@ export class GameScene extends Phaser.Scene {
     this.hoverCoord = null;
     this.resolutionAnimationToken = 0;
     this.statusMessage = 'Tap a piece, then stack matching colors.';
+    this.startedAtMs = Date.now();
 
     this.input.on('pointermove', this.handlePointerMove, this);
     this.input.on('pointerdown', this.handlePointerDown, this);
@@ -415,15 +417,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   checkGameOver() {
+    if (this.isGameOver) {
+      return;
+    }
+
     if (this.board.hasAnyFit(this.tray)) {
       return;
     }
 
     this.isGameOver = true;
+    const previousBest = this.storage.getBestScore();
     const bestScore = this.storage.saveBestScore(this.scoreModel.score);
-    const result = {
-      ...this.scoreModel.snapshot(),
+    const createdAt = new Date().toISOString();
+    const resultBase = createFinalResultStats({
+      scoreSnapshot: this.scoreModel.snapshot(),
       bestScore,
+      piecesPlaced: this.placements,
+      durationSec: getDurationSec(this.startedAtMs),
+      createdAt,
+      isNewBest: this.scoreModel.score > previousBest
+    });
+    const localRecordSummary = this.storage.saveLocalRecord(resultBase, { createdAt });
+    const result = {
+      ...resultBase,
+      localRecords: localRecordSummary.state.records,
+      localRecordRank: localRecordSummary.rank,
       canUndo: Boolean(this.undoSnapshot),
       soundEnabled: this.soundEnabled
     };
@@ -478,6 +496,7 @@ export class GameScene extends Phaser.Scene {
     this.inputLockedUntil = 0;
     this.hoverCoord = null;
     this.resolutionAnimationToken += 1;
+    this.startedAtMs = Date.now();
     this.emitStatus('New game started. Stack matching colors. Reach 6.');
     this.redraw();
     this.emitStats();
@@ -988,6 +1007,7 @@ export class GameScene extends Phaser.Scene {
       detail: {
         ...this.scoreModel.snapshot(),
         bestScore: Math.max(this.storage.getBestScore(), this.scoreModel.score),
+        piecesPlaced: this.placements,
         canUndo: Boolean(this.undoSnapshot),
         soundEnabled: this.soundEnabled
       }
@@ -1101,6 +1121,14 @@ function getFrameGlobal() {
     requestAnimationFrame: globalObject.requestAnimationFrame?.bind(globalObject) ?? ((callback) => setTimeout(callback, 16)),
     cancelAnimationFrame: globalObject.cancelAnimationFrame?.bind(globalObject) ?? clearTimeout
   };
+}
+
+function getDurationSec(startedAtMs) {
+  if (!startedAtMs) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round((Date.now() - startedAtMs) / 1000));
 }
 
 function isDragDebugEnabled() {

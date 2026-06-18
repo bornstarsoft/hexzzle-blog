@@ -28,26 +28,48 @@
   </div>
   <p class="hexzzle-status" data-hexzzle-status aria-live="polite">Tap a piece, then stack matching colors.</p>
 
-  <section class="result-panel" data-hexzzle-result hidden aria-labelledby="result-title">
-    <div class="result-card" data-hexzzle-result-card>
-      <p class="eyebrow">Classic result</p>
-      <h2 id="result-title">Bloom score</h2>
-      <strong data-result-score>0</strong>
-      <div class="result-card__motif" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
+  <section class="result-panel" data-hexzzle-result hidden role="dialog" aria-modal="true" aria-labelledby="result-title">
+    <div class="result-panel__dialog">
+      <div class="result-card" data-hexzzle-result-card>
+        <div class="result-card__header">
+          <div>
+            <p class="eyebrow">Classic result</p>
+            <h2 id="result-title">Bloom Result</h2>
+          </div>
+          <span class="result-card__best" data-result-new-best hidden>New Best!</span>
+        </div>
+        <strong data-result-score>0</strong>
+        <div class="result-card__motif" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <dl class="result-card__stats">
+          <div><dt>Best</dt><dd data-result-best>0</dd></div>
+          <div><dt>Blooms</dt><dd data-result-blooms>0</dd></div>
+          <div><dt>Best Stack</dt><dd data-result-stack>0</dd></div>
+          <div><dt>Overblooms</dt><dd data-result-overblooms>0</dd></div>
+          <div><dt>Pieces</dt><dd data-result-pieces>0</dd></div>
+        </dl>
       </div>
-      <dl>
-        <div><dt>Best</dt><dd data-result-best>0</dd></div>
-        <div><dt>Total Blooms</dt><dd data-result-blooms>0</dd></div>
-        <div><dt>Best Chain</dt><dd data-result-chain>x0</dd></div>
-        <div><dt>Best Stack</dt><dd data-result-group>0</dd></div>
-      </dl>
+
+      <section class="result-records" aria-labelledby="local-records-title">
+        <div class="result-records__header">
+          <div>
+            <h3 id="local-records-title">Local Records</h3>
+            <p>Local records are saved only on this device.</p>
+          </div>
+          <span data-result-record-rank></span>
+        </div>
+        <ol class="result-records__list" data-result-records-list></ol>
+        <p class="result-records__empty" data-result-records-empty hidden>No local records yet.</p>
+      </section>
+
+      <div class="result-panel__actions">
+        <button class="button button--primary" type="button" data-hexzzle-play-again>Play Again</button>
+        <button class="button button--secondary" type="button" data-hexzzle-share>Share</button>
+        <button class="button button--secondary" type="button" data-hexzzle-records aria-expanded="false">Records</button>
+      </div>
+      <p class="hexzzle-status" data-hexzzle-share-status aria-live="polite"></p>
     </div>
-    <div class="result-panel__actions">
-      <button class="button button--primary" type="button" data-hexzzle-play-again>Play again</button>
-      <button class="button button--secondary" type="button" data-hexzzle-share>Share</button>
-    </div>
-    <p class="hexzzle-status" data-hexzzle-share-status aria-live="polite"></p>
   </section>
 </div>
 

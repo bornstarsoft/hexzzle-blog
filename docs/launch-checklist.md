@@ -19,7 +19,7 @@
 ## Game
 
 - [ ] Classic mode starts instantly.
-- [ ] Result panel shows score, best score, total Blooms, best chain, and longest group.
+- [ ] Result panel shows score, best score, Blooms, Best Stack, Overblooms, Pieces, and local records.
 - [ ] Restart works with one click or tap.
 - [ ] Share uses Web Share API where available.
 - [ ] Share fallback copies text to clipboard.

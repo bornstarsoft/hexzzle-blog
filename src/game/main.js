@@ -25,6 +25,7 @@ async function startHexzzle(parent) {
   const soundButton = document.querySelector('[data-hexzzle-sound]');
   const shareButtons = document.querySelectorAll('[data-hexzzle-share]');
   const playAgainButton = document.querySelector('[data-hexzzle-play-again]');
+  const recordsButton = document.querySelector('[data-hexzzle-records]');
   const shareStatusNode = document.querySelector('[data-hexzzle-share-status]');
   let lastResult = null;
 
@@ -57,6 +58,10 @@ async function startHexzzle(parent) {
     resultPanel.hide();
     lastResult = null;
     parent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  recordsButton?.addEventListener('click', () => {
+    resultPanel.toggleRecords();
   });
 
   undoButton?.addEventListener('click', () => {

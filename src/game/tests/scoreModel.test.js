@@ -44,6 +44,8 @@ test('uses tunable per-overbloom bonus for stack counts above 6', () => {
   });
 
   assert.equal(points, 200);
+  assert.equal(score.snapshot().overblooms, 1);
+  assert.equal(score.snapshot().bestStack, 8);
 });
 
 test('falls back to legacy extraStackBonus when per-over value is not configured', () => {

@@ -18,6 +18,7 @@ export class ScoreModel {
     this.totalBlooms = 0;
     this.bestChain = 0;
     this.longestGroup = 0;
+    this.overblooms = 0;
   }
 
   addPlacement(cellCount) {
@@ -52,6 +53,9 @@ export class ScoreModel {
     this.totalBlooms += result.groupsCleared;
     this.bestChain = Math.max(this.bestChain, result.chainCount);
     this.longestGroup = Math.max(this.longestGroup, result.longestGroup);
+    this.overblooms += result.scans.reduce((sum, groups) => (
+      sum + groups.filter((group) => group.totalCount > 6).length
+    ), 0);
 
     return points;
   }
@@ -67,7 +71,9 @@ export class ScoreModel {
       score: this.score,
       totalBlooms: this.totalBlooms,
       bestChain: this.bestChain,
-      longestGroup: this.longestGroup
+      longestGroup: this.longestGroup,
+      bestStack: this.longestGroup,
+      overblooms: this.overblooms
     };
   }
 
@@ -76,5 +82,6 @@ export class ScoreModel {
     this.totalBlooms = snapshot.totalBlooms;
     this.bestChain = snapshot.bestChain;
     this.longestGroup = snapshot.longestGroup;
+    this.overblooms = snapshot.overblooms ?? 0;
   }
 }
